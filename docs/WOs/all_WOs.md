@@ -91,7 +91,7 @@ Conventions for all WOs
 
 ---
 
-## WO-03 — Frame Canonicalizer (D4 lex-min + anchor)
+## WO-03 — Frame Canonicalizer (D4 lex-min + anchor) ✅ COMPLETED
 
 **Goal:** Freeze poses and anchors deterministically.
 

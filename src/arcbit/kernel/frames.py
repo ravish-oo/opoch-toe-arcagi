@@ -96,11 +96,16 @@ def canonicalize(
     # Frozen pose order (WO-01)
     pose_ids = ["I", "R90", "R180", "R270", "FX", "FXR90", "FXR180", "FXR270"]
 
-    # Phase 1: Enumerate all 8 poses and find lex-min serialization
-    min_bytes = None
+    # Phase 1: Enumerate all 8 poses and find lex-min on POSED+ANCHORED+CROPPED bytes
+    # This ensures idempotence: canonicalize(canonicalize(G)) = ("I", (0,0), G)
+    # Note: We compare cropped bytes but RETURN uncropped posed+anchored grid
+    min_bytes_anchored_cropped = None  # Cropped bytes for comparison only
     min_pid = None
-    min_grid = None
-    pose_tie_count = 0  # Track how many poses tie on lex-min
+    min_grid_posed = None
+    min_grid_anchored = None  # Uncropped anchored grid (what we return)
+    min_anchor = None
+    min_bytes_posed = None  # Keep for receipts (hash_before)
+    pose_tie_count = 0  # Track how many poses tie on lex-min (of cropped bytes)
 
     for pid in pose_ids:
         # Apply pose to grid via bit-planes
@@ -108,53 +113,65 @@ def canonicalize(
         H_posed = len(G_posed)
         W_posed = len(G_posed[0]) if G_posed else 0
 
-        # Serialize using WO-00
-        grid_bytes = serialize_grid_be_row_major(G_posed, H_posed, W_posed, colors)
+        # Find bbox top-left (content-preserving anchor)
+        r_min, c_min = _find_bbox_anchor(G_posed)
 
-        # Lexicographic comparison
-        if min_bytes is None or grid_bytes < min_bytes:
-            min_bytes = grid_bytes
+        # Anchor the posed grid to origin (bbox top-left → 0,0)
+        if r_min is None:
+            # All zeros: no translation needed
+            anchor = (0, 0)
+            G_posed_anchored = G_posed
+        else:
+            # Translate so (r_min, c_min) → (0, 0)
+            # This preserves ALL content (no pixel left behind)
+            anchor = (r_min, c_min)
+            G_posed_anchored = _translate_grid(G_posed, -r_min, -c_min)
+
+        # Crop to bounding box (removes trailing zeros from translation)
+        G_posed_anchored_cropped = _crop_to_bbox(G_posed_anchored)
+        H_cropped = len(G_posed_anchored_cropped)
+        W_cropped = len(G_posed_anchored_cropped[0]) if G_posed_anchored_cropped else 0
+
+        # Serialize POSED+ANCHORED+CROPPED grid for comparison
+        grid_bytes_full = serialize_grid_be_row_major(
+            G_posed_anchored_cropped, H_cropped, W_cropped, colors
+        )
+
+        # Lexicographic comparison on FULL cropped bytes (including H, W in header)
+        # This makes the comparison shape-aware naturally
+        if min_bytes_anchored_cropped is None or grid_bytes_full < min_bytes_anchored_cropped:
+            min_bytes_anchored_cropped = grid_bytes_full
             min_pid = pid
-            min_grid = G_posed
+            min_grid_posed = G_posed
+            min_grid_anchored = G_posed_anchored  # Store UNCROPPED for return
+            min_grid_cropped = G_posed_anchored_cropped  # Store CROPPED for comparison
+            min_anchor = anchor
+            # Also serialize posed grid for receipts (hash_before)
+            min_bytes_posed = serialize_grid_be_row_major(G_posed, H_posed, W_posed, colors)
             pose_tie_count = 1  # First pose with this minimum
-        elif grid_bytes == min_bytes:
+        elif grid_bytes_full == min_bytes_anchored_cropped:
             pose_tie_count += 1  # Another pose ties
 
-    # Phase 2: Anchor to origin
-    assert min_grid is not None and min_pid is not None
+    # Phase 2: Extract results (return UNCROPPED anchored grid per author's spec)
+    assert min_grid_anchored is not None and min_pid is not None
+    assert min_anchor is not None
 
-    # Find first nonzero cell (row-major)
-    r_first, c_first = _find_first_nonzero(min_grid)
-
-    all_zero = (r_first is None)
-
-    if all_zero:
-        # All zeros: no translation needed
-        anchor = (0, 0)
-        G_canon = min_grid
-    else:
-        # Translate so (r_first, c_first) → (0, 0)
-        anchor = (r_first, c_first)
-        G_canon = _translate_grid(min_grid, -r_first, -c_first)
+    G_canon = min_grid_anchored  # Return posed+anchored (UNCROPPED) grid
+    anchor = min_anchor
+    all_zero = (anchor == (0, 0) and min_pid == "I")
 
     # Generate receipts (always)
     # Count nonzero cells
     nonzero_count = sum(1 for row in G for val in row if val != 0)
 
-    # Hash before canonicalization
-    hash_before = blake3_hash(serialize_grid_be_row_major(G, H, W, colors))
+    # Hash before anchoring: winning posed grid (before translation)
+    hash_before = blake3_hash(min_bytes_posed)
 
-    # Hash after canonicalization
+    # Hash after anchoring: canonical grid (posed+anchored, uncropped)
     H_canon = len(G_canon)
     W_canon = len(G_canon[0]) if G_canon else 0
-    color_set_canon = set()
-    for row in G_canon:
-        for val in row:
-            color_set_canon.add(val)
-    if 0 not in color_set_canon:
-        color_set_canon.add(0)
-    colors_canon = order_colors(color_set_canon)
-    hash_after = blake3_hash(serialize_grid_be_row_major(G_canon, H_canon, W_canon, colors_canon))
+    min_bytes_anchored = serialize_grid_be_row_major(G_canon, H_canon, W_canon, colors)
+    hash_after = blake3_hash(min_bytes_anchored)
 
     # Note: idempotence check NOT done here to avoid recursion
     # Test code should verify: canonicalize(G_canon)[0:3] == ("I", (0,0), G_canon)
@@ -337,31 +354,55 @@ def _pose_grid_via_planes(
     return G_posed
 
 
-def _find_first_nonzero(G: List[List[int]]) -> Tuple[Optional[int], Optional[int]]:
+def _find_bbox_anchor(G: List[List[int]]) -> Tuple[Optional[int], Optional[int]]:
     """
-    Find first nonzero cell in row-major order.
+    Find top-left corner of bounding box containing all nonzero cells.
 
     Args:
         G: Grid.
 
     Returns:
-        Tuple of (r, c) or (None, None) if all zeros.
+        Tuple of (r_min, c_min) or (None, None) if all zeros.
 
     Spec:
-        WO-03 helper: Row-major scan (r=0..H-1, c=0..W-1).
+        WO-03 helper: Content-preserving anchor.
+        Returns (min_r, min_c) where:
+          r_min = min { r | ∃ c: G[r][c] != 0 }
+          c_min = min { c | ∃ r: G[r][c] != 0 }
+
+        This ensures translation by (-r_min, -c_min) never discards content,
+        unlike first-nonzero which can drop pixels with smaller column indices
+        on later rows.
     """
     H = len(G)
     if H == 0:
         return (None, None)
 
     W = len(G[0]) if G else 0
+    if W == 0:
+        return (None, None)
+
+    r_min, r_max = H, -1
+    c_min, c_max = W, -1
 
     for r in range(H):
+        row = G[r]
         for c in range(W):
-            if G[r][c] != 0:
-                return (r, c)
+            if row[c] != 0:
+                if r < r_min:
+                    r_min = r
+                if r > r_max:
+                    r_max = r
+                if c < c_min:
+                    c_min = c
+                if c > c_max:
+                    c_max = c
 
-    return (None, None)
+    # All zeros?
+    if r_max == -1:
+        return (None, None)
+
+    return (r_min, c_min)
 
 
 def _translate_grid(G: List[List[int]], dy: int, dx: int) -> List[List[int]]:
@@ -413,3 +454,61 @@ def _translate_grid(G: List[List[int]], dy: int, dx: int) -> List[List[int]]:
         G_trans.append(row_out)
 
     return G_trans
+
+
+def _crop_to_bbox(G: List[List[int]]) -> List[List[int]]:
+    """
+    Crop grid to minimal bounding box containing all nonzero cells.
+
+    Args:
+        G: Input grid.
+
+    Returns:
+        list[list[int]]: Cropped grid with no trailing zero rows/cols.
+                        Empty 0×0 grid if all zeros.
+
+    Spec:
+        WO-03 helper: Removes all-zero border rows/cols (top, bottom, left, right).
+        Interior zeros remain untouched.
+        All-zero grid returns empty 0×0 (fine for byte comparison).
+    """
+    H = len(G)
+    if H == 0:
+        return []  # Empty 0x0
+
+    W = len(G[0]) if G else 0
+    if W == 0:
+        return []  # Empty 0x0
+
+    # Find top (first row with any nonzero)
+    top = 0
+    while top < H and all(v == 0 for v in G[top]):
+        top += 1
+
+    # Find bottom (last row with any nonzero)
+    bottom = H - 1
+    while bottom >= 0 and all(v == 0 for v in G[bottom]):
+        bottom -= 1
+
+    # All zero?
+    if top > bottom:
+        return []  # Empty 0x0
+
+    # Find left/right over the kept rows
+    left = W
+    right = -1
+    for r in range(top, bottom + 1):
+        row = G[r]
+        # First nonzero in row
+        for c in range(W):
+            if row[c] != 0:
+                left = min(left, c)
+                break
+        # Last nonzero in row
+        for c in range(W - 1, -1, -1):
+            if row[c] != 0:
+                right = max(right, c)
+                break
+
+    # Slice inclusive bbox
+    return [row[left:right + 1] for row in G[top:bottom + 1]]

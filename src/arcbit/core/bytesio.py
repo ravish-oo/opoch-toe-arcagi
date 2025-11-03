@@ -200,11 +200,11 @@ def serialize_planes_be_row_major(
             raise SerializationError(f"Color {color} out of uint8 range")
         stream.append(color)
 
-    # Payload: per-color, per-row masks
+    # Payload: per-row, per-color masks (same order as grid serialization)
     bytes_per_row = math.ceil(W / 8)
 
-    for color in colors_order:
-        for r in range(H):
+    for r in range(H):
+        for color in colors_order:
             row_mask = planes[color][r]
             # Convert row mask (unsigned int) to bytes
             mask_bytes = bytearray(bytes_per_row)

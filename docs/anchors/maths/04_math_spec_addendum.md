@@ -37,8 +37,9 @@ Given grid G\in\mathbb Z^{H\times W}:
 	2.	Flatten each G_T to bytes (BE) row-major.
 	3.	Choose lexicographically smallest sequence; ties broken by pose id order:
 [I=0, R90=1, R180=2, R270=3, FX=4, FXR90=5, FXR180=6, FXR270=7].
-	4.	Anchor: find first nonzero pixel by row-major; translate so it becomes (0,0).
+	4.	“Anchor: top-left corner of the global non-zero bounding box → (0,0).”
 Receipts: pose_id, pose_tie_count, anchor=(dr,dc).
+
 
 B.2 Size predictor (T9) — explicit & finite
 
