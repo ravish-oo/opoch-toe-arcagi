@@ -8,6 +8,8 @@ Spec: WO-05 (v1.5 + v1.6)
 """
 
 from typing import Dict, List, Tuple, TypedDict
+import json
+from ..core import Receipts
 from ..core.hashing import blake3_hash
 from ..core.bytesio import serialize_grid_be_row_major
 from .ops import pose_plane
@@ -28,7 +30,7 @@ def components(
     H: int,
     W: int,
     colors_order: List[int]
-) -> List[Component]:
+) -> Tuple[List[Component], Dict]:
     """
     Extract all 4-CC components for colors in colors_order EXCEPT color 0.
 
@@ -51,15 +53,28 @@ def components(
         colors_order: Ascending integers, includes 0.
 
     Returns:
-        List of Component dicts (excluding color 0 by default).
+        Tuple of (components, receipts):
+          - components: List of Component dicts (excluding color 0 by default)
+          - receipts: Receipt dict with invariants and section_hash
 
     Raises:
         ValueError: If row count != H or bits outside [0..W-1].
 
     Spec:
         WO-05: Pure bit-ops; deterministic seed selection; no heuristics.
+        Receipts-first: all invariants logged.
     """
+    # Initialize receipts
+    receipts = Receipts("components")
+
     # A) Validate inputs
+    receipts.put("inputs", {
+        "H": H,
+        "W": W,
+        "colors_order": colors_order,
+        "include_background": False
+    })
+
     for color in colors_order:
         if color not in planes:
             raise ValueError(f"WO-05: Color {color} not in planes dict")
@@ -206,10 +221,28 @@ def components(
     if not overlap_zero:
         raise ValueError("WO-05: Component masks overlap (non-disjoint components)")
 
-    # D) Generate receipts (TODO: add to return via wrapper or global state)
-    # For now, we rely on assertions above to catch errors
+    # D) Store receipts
+    receipts.put("per_color_summary", per_color_summary)
 
-    return all_components
+    # Components receipt array (without mask_plane to keep logs compact)
+    components_receipt = []
+    for comp in all_components:
+        components_receipt.append({
+            "color": comp["color"],
+            "bbox": list(comp["bbox"]),
+            "area": comp["area"],
+            "perim4": comp["perim4"],
+            "outline_hash": comp["outline_hash"]
+        })
+    receipts.put("components", components_receipt)
+
+    receipts.put("union_equal_input", union_equal_input)
+    receipts.put("overlap_zero", overlap_zero)
+
+    # Seal and return
+    receipts_bundle = receipts.digest()
+
+    return all_components, receipts_bundle
 
 
 # ============================================================================

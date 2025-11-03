@@ -35,7 +35,7 @@ def test_single_pixel_component():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     assert len(comps) == 1, f"Expected 1 component, got {len(comps)}"
 
@@ -61,7 +61,7 @@ def test_horizontal_line_component():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     assert len(comps) == 1
 
@@ -89,7 +89,7 @@ def test_vertical_line_component():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     assert len(comps) == 1
 
@@ -117,7 +117,7 @@ def test_rectangle_component():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     assert len(comps) == 1
 
@@ -143,7 +143,7 @@ def test_multiple_components_same_color():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     assert len(comps) == 4, f"Expected 4 components, got {len(comps)}"
 
@@ -168,7 +168,7 @@ def test_multiple_colors():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     # Should have 2 components: one for color 1, one for color 2
     assert len(comps) == 2, f"Expected 2 components, got {len(comps)}"
@@ -201,7 +201,7 @@ def test_union_equals_input():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     # Union all component masks
     union_mask = [0] * H
@@ -228,7 +228,7 @@ def test_overlap_zero():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     # Check all pairwise overlaps
     for i, comp_i in enumerate(comps):
@@ -260,10 +260,10 @@ def test_d4_outline_hash_invariance():
 
     # Get components for both
     planes_I = pack_grid_to_planes(G_I, H, W, colors)
-    comps_I = components(planes_I, H, W, colors)
+    comps_I, _ = components(planes_I, H, W, colors)
 
     planes_R90 = pack_grid_to_planes(G_R90, H, W, colors)
-    comps_R90 = components(planes_R90, H, W, colors)
+    comps_R90, _ = components(planes_R90, H, W, colors)
 
     assert len(comps_I) == 1
     assert len(comps_R90) == 1
@@ -291,7 +291,7 @@ def test_background_excluded():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     # Should only have components for color 1
     for comp in comps:
@@ -314,7 +314,7 @@ def test_connected_component_separation():
     colors = order_colors(color_set)
 
     planes = pack_grid_to_planes(G, H, W, colors)
-    comps = components(planes, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
 
     # Diagonals are NOT 4-connected, so should be 3 separate components
     assert len(comps) == 3, f"Expected 3 components (diagonal not connected), got {len(comps)}"
@@ -325,12 +325,75 @@ def test_connected_component_separation():
                    [0, 1, 1]]
 
     planes_conn = pack_grid_to_planes(G_connected, H, W, colors)
-    comps_conn = components(planes_conn, H, W, colors)
+    comps_conn, _ = components(planes_conn, H, W, colors)
 
     # Should be 1 component (all 4-connected)
     assert len(comps_conn) == 1, f"Expected 1 component (4-connected), got {len(comps_conn)}"
 
     print("✓ 4-CC separation: diagonal=3 components, connected=1 component")
+
+
+def test_receipts_structure():
+    """Test that receipts have required fields and correct structure."""
+    print("Testing receipts structure...")
+
+    G = [[1, 0, 2],
+         [1, 1, 2],
+         [0, 0, 0]]
+
+    H, W = 3, 3
+    color_set = {0, 1, 2}
+    colors = order_colors(color_set)
+
+    planes = pack_grid_to_planes(G, H, W, colors)
+    comps, receipts = components(planes, H, W, colors)
+
+    # Check receipt structure
+    payload = receipts["payload"]
+
+    # Required fields
+    assert "inputs" in payload
+    assert payload["inputs"]["H"] == H
+    assert payload["inputs"]["W"] == W
+    assert payload["inputs"]["colors_order"] == colors
+    assert payload["inputs"]["include_background"] == False
+
+    # Per-color summary
+    assert "per_color_summary" in payload
+    summary = payload["per_color_summary"]
+    assert len(summary) == 2  # Colors 1 and 2 (0 excluded)
+
+    for s in summary:
+        assert "color" in s
+        assert "n_cc" in s
+        assert "area_sum" in s
+        assert "area_min" in s
+        assert "area_max" in s
+        assert "perim4_sum" in s
+
+    # Components
+    assert "components" in payload
+    comp_receipts = payload["components"]
+    assert len(comp_receipts) == 2
+
+    for c in comp_receipts:
+        assert "color" in c
+        assert "bbox" in c
+        assert "area" in c
+        assert "perim4" in c
+        assert "outline_hash" in c
+
+    # Invariants
+    assert "union_equal_input" in payload
+    assert payload["union_equal_input"] == True
+
+    assert "overlap_zero" in payload
+    assert payload["overlap_zero"] == True
+
+    # Section hash (at root level)
+    assert "section_hash" in receipts
+
+    print("✓ Receipts: all required fields present and valid")
 
 
 if __name__ == "__main__":
@@ -350,6 +413,7 @@ if __name__ == "__main__":
     test_d4_outline_hash_invariance()
     test_background_excluded()
     test_connected_component_separation()
+    test_receipts_structure()
 
     print()
     print("=" * 60)
@@ -362,3 +426,4 @@ if __name__ == "__main__":
     print("  - Union/overlap invariants")
     print("  - D4-minimal outline hash")
     print("  - Background (color 0) excluded")
+    print("  - Receipts with all required fields")

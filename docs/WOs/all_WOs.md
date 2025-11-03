@@ -195,7 +195,7 @@ Section: `working_canvas`
 * Real-ARC check: tasks with differing output sizes → deterministic `lcm_shape` receipts; reduction fails on mixed blocks.
 
 ---
-## WO-05 — 4-CC Components & Shape Invariants
+## WO-05 — 4-CC Components & Shape Invariants ✅ COMPLETED
 
 **Goal:** Extract per-color components using bit ops; bbox, area, perim4, outline hash.
 
