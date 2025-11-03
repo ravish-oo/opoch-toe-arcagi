@@ -15,7 +15,7 @@ Conventions for all WOs
 
 ---
 
-## WO-00 — Param Registry & Receipts Core (foundation)
+## WO-00 — Param Registry & Receipts Core (foundation) ✅ COMPLETED
 
 **Goal:** One tiny library to hash, serialize planes, and record receipts consistently.
 
@@ -41,7 +41,7 @@ Conventions for all WOs
 
 ---
 
-## WO-01 — Bit-Planes & Kernel Ops (5 primitives)
+## WO-01 — Bit-Planes & Kernel Ops (5 primitives) ✅ COMPLETED
 
 **Goal:** Implement PACK/UNPACK and the five ops: SHIFT, POSE, AND/OR/ANDN, PERIOD skeleton.
 

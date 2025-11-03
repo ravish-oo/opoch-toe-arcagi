@@ -26,8 +26,11 @@ here is the WO. do refer to @docs/repo_structure.md to knw the folder structure.
   3. u can see that debugging is reduced to algebra and WO adheres to it 
   4. no room for hit and trials
 
+
 once u confirm above, we can start review/testing!
 
 # start review
+
+do refer to docs/repo_structure.md to knw what to find whr..
 1. U must point to any stubs, simplfiied implementations, TODOs, MVP like comments, prototpype or toy implementations, any shortcuts.. point being.. thr must be no corner cuttings. even if something complex is left out in favor time saving, call it out
-2. u must test on real arc agi data if WO allow and MUST use rceipts ONLY to test and make debugging and bug catching algebric
+2. u must test on real arc agi data if WO allow and MUST use rceipts ONLY to test and make debugging and bug catching algebric. real data is in data/ folder
