@@ -18,6 +18,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.arcbit.canvas import choose_working_canvas, SizeUndetermined
+from src.arcbit.kernel import order_colors
+
+
+def _get_colors_order(train_pairs):
+    """Helper to extract color universe from train_pairs."""
+    color_set = {0}  # Always include background
+    for pair in train_pairs:
+        for row in pair["X"]:
+            for val in row:
+                color_set.add(val)
+        for row in pair["Y"]:
+            for val in row:
+                color_set.add(val)
+    return sorted(color_set)
 
 
 def test_h1_multiplicative():
@@ -39,9 +53,10 @@ def test_h1_multiplicative():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (5, 7)
+    colors_order = _get_colors_order(train_pairs)
 
     R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
+        train_pairs, frames_in, frames_out, xstar_shape, colors_order
     )
 
     assert R_out == 10, f"Expected R=10, got {R_out}"
@@ -76,10 +91,8 @@ def test_h2_additive():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (10, 10)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     assert R_out == 11
     assert C_out == 12
@@ -110,10 +123,8 @@ def test_h3_mixed_affine():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (5, 5)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     assert R_out == 11  # 2*5+1
     assert C_out == 10  # 2*5+0
@@ -144,10 +155,8 @@ def test_h4_constant():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (20, 3)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     assert R_out == 5
     assert C_out == 7
@@ -187,10 +196,8 @@ def test_h5_period_based():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (10, 10)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     # H5 should fit with kr=2, kc=2, using common lcm=2 from outputs
     assert R_out == 4  # 2*2
@@ -226,10 +233,8 @@ def test_h6_floor_stride():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (15, 13)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     assert R_out == 7  # floor(15/2)
     assert C_out == 6  # floor(13/2)
@@ -260,10 +265,8 @@ def test_h7_ceil_stride():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (7, 8)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     assert R_out == 3  # ceil(7/3)
     assert C_out == 3  # ceil(8/3)
@@ -290,10 +293,9 @@ def test_tie_rule_smallest_area():
     frames_in = [{}]
     frames_out = [{}]
     xstar_shape = (1, 1)  # H1 predicts 2×2 (area=4), H4 predicts 4×4 (area=16)
+    colors_order = _get_colors_order(train_pairs)
 
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     # H1 should win (smaller test area)
     assert R_out == 2
@@ -324,11 +326,10 @@ def test_size_undetermined():
     frames_in = [{}, {}]
     frames_out = [{}, {}]
     xstar_shape = (10, 10)
+    colors_order = _get_colors_order(train_pairs)
 
     try:
-        R_out, C_out, receipts = choose_working_canvas(
-            train_pairs, frames_in, frames_out, xstar_shape
-        )
+        R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
         assert False, "Should have raised SizeUndetermined"
     except SizeUndetermined as e:
         # Check receipts included in exception
@@ -355,10 +356,8 @@ def test_receipts_structure():
     frames_in = [{}]
     frames_out = [{}]
     xstar_shape = (3, 3)
-
-    R_out, C_out, receipts = choose_working_canvas(
-        train_pairs, frames_in, frames_out, xstar_shape
-    )
+    colors_order = _get_colors_order(train_pairs)
+    R_out, C_out, receipts = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     # Check structure
     assert "payload" in receipts
@@ -407,10 +406,11 @@ def test_receipts_determinism():
     frames_in = [{}]
     frames_out = [{}]
     xstar_shape = (5, 5)
+    colors_order = _get_colors_order(train_pairs)
 
     # Run twice
-    R1, C1, receipts1 = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape)
-    R2, C2, receipts2 = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape)
+    R1, C1, receipts1 = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
+    R2, C2, receipts2 = choose_working_canvas(train_pairs, frames_in, frames_out, xstar_shape, colors_order)
 
     # Results should match
     assert R1 == R2

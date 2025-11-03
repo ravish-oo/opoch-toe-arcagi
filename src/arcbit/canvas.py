@@ -45,7 +45,8 @@ def choose_working_canvas(
     train_pairs: List[Dict],
     frames_in: List[Dict],
     frames_out: List[Dict],
-    xstar_shape: Tuple[int, int]
+    xstar_shape: Tuple[int, int],
+    colors_order: List[int]
 ) -> Tuple[int, int, Dict]:
     """
     Choose single working canvas size (R_out, C_out) via frozen H1-H7 evaluation.
@@ -55,6 +56,7 @@ def choose_working_canvas(
         frames_in: List of frame objects for inputs (receipts only).
         frames_out: List of frame objects for outputs (receipts only).
         xstar_shape: (H*, W*) test input dimensions.
+        colors_order: Global color universe (sorted, includes 0).
 
     Returns:
         Tuple of (R_out, C_out, receipts_dict).
@@ -96,13 +98,13 @@ def choose_working_canvas(
         sizes_out.append((H_out, W_out))
 
         # Extract features from INPUT (for receipts only)
-        C_order_in = order_colors(set(cell for row in X for cell in row))
-        feat_in = _extract_size_features(X, H_in, W_in, C_order_in)
+        # Use global colors_order (not per-grid, as some grids may lack color 0)
+        feat_in = _extract_size_features(X, H_in, W_in, colors_order)
         features_in.append(feat_in)
 
         # Extract features from OUTPUT (for H5 period detection)
-        C_order_out = order_colors(set(cell for row in Y for cell in row))
-        feat_out = _extract_size_features(Y, H_out, W_out, C_order_out)
+        # Use global colors_order (not per-grid, as some grids may lack color 0)
+        feat_out = _extract_size_features(Y, H_out, W_out, colors_order)
         features_out.append(feat_out)
 
     # Store features hashes (from OUTPUT, as H5 uses output periods)

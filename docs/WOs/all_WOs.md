@@ -122,7 +122,7 @@ Conventions for all WOs
 
 ---
 
-## WO-04a — Working Canvas Provider (calls T9 early)
+## WO-04a — Working Canvas Provider (calls T9 early) ✅ COMPLETED
 
 **Purpose**
 Decide the **single working canvas** size ((R_{out}, C_{out})) **once up front** using T9 size hypotheses (H1..H7) from trainings only. No LCM logic remains.

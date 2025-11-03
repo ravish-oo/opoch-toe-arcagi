@@ -2,17 +2,18 @@
 ARC-AGI Deterministic Runner
 
 Milestone-based runner that evolves incrementally:
-  - M0 (current): Bedrock validation (color universe, pack/unpack, canonicalize)
-  - M1+: Size prediction, emitters, LFP, selection (to be added)
+  - M0: Bedrock validation (color universe, pack/unpack, canonicalize) ✅
+  - M1 (current): Working canvas selection via WO-14 + WO-04a
+  - M2+: Emitters, LFP, selection (to be added)
 
-Current M0 Implementation:
-  - Wires foundational modules (WO-00, WO-01, WO-03)
-  - Proves byte-level correctness of color-plane packing/unpacking
-  - Proves frame canonicalization (D4 lex-min + anchor)
+Current M1 Implementation:
+  - M0 sections unchanged (color universe, pack/unpack, frames)
+  - NEW: Working canvas (R_out, C_out) via frozen H1-H7 size predictor
+  - Uses WO-14 features + WO-04a choose_working_canvas
   - Output: Y_placeholder = X* (identity), plus receipts bundle
-  - No solving yet (validation only)
+  - No painting/normalization yet (validation + size selection only)
 
-Future sections will be appended below M0 sections as milestones progress.
+Future sections will be appended below M1 sections as milestones progress.
 """
 
 from typing import Tuple, Dict, List
@@ -25,23 +26,30 @@ from .kernel import (
     canonicalize,
     apply_pose_anchor
 )
+from .features import agg_features
+from .canvas import choose_working_canvas, SizeUndetermined
 
 
 def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
     """
     ARC-AGI deterministic solver (milestone-based).
 
-    Current M0 Implementation:
-      Returns test input unchanged as Y_placeholder (validation only).
+    Current M1 Implementation:
+      Returns test input unchanged as Y_placeholder.
       Steps:
-        1) Build color universe C = {0} ∪ colors(X*) ∪ ⋃colors(X_i,Y_i)
-        2) PACK→UNPACK identity check on all trainings and on X*
-        3) Canonicalize frames (Π_in for all X_i and X*, Π_out for all Y_i)
-        4) apply_pose_anchor round-trip proof on X* planes
-        5) Seal receipts (no timestamps)
+        M0 sections (unchanged):
+          1) Build color universe C = {0} ∪ colors(X*) ∪ ⋃colors(X_i,Y_i)
+          2) PACK→UNPACK identity check on all trainings and on X*
+          3) Canonicalize frames (Π_in for all X_i and X*, Π_out for all Y_i)
+          4) apply_pose_anchor round-trip proof on X* planes
+
+        M1 sections (new):
+          5) Extract WO-14 features from training inputs
+          6) Choose working canvas (R_out, C_out) via WO-04a (H1-H7)
+          7) Seal receipts with working_canvas section (no timestamps)
 
     Future Milestones (to be added):
-      - M1+: Size prediction, emitters, LFP, selection
+      - M2+: Emitters, LFP, selection
 
     Args:
         task_json: ARC task dict with keys:
@@ -50,8 +58,8 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
 
     Returns:
         Tuple of (Y, receipts_bundle):
-          - Y: Predicted output grid (M0: returns X* unchanged)
-          - receipts_bundle: dict with sectioned receipts
+          - Y: Predicted output grid (M1: returns X* unchanged)
+          - receipts_bundle: dict with sectioned receipts including working_canvas
 
     Invariants (all milestones):
         - No heuristics, no floats, no RNG
@@ -62,6 +70,7 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
 
     Raises:
         ValueError: On shape mismatch, bit overflow, bad pose ID
+        SizeUndetermined: If no H1-H7 hypothesis fits all trainings (M1)
         RuntimeError: On determinism check failure (double-run mismatch)
     """
     # Extract grids
@@ -111,7 +120,7 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
     added_from_test = sorted(test_colors - {0})
 
     # Build receipts
-    receipts = Receipts("M0-bedrock")  # Section label (will evolve with milestones)
+    receipts = Receipts("M1-canvas-online")  # Section label (will evolve with milestones)
 
     receipts.put("color_universe.colors_order", colors_order)
     receipts.put("color_universe.added_from_test", added_from_test)
@@ -311,13 +320,83 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
     receipts.put("frames.apply_pose_anchor", apply_receipt)
 
     # ========================================================================
-    # M0 Step 5: Seal receipts and return
+    # M1 Step 5: Extract WO-14 Features (from training inputs)
+    # ========================================================================
+
+    # WO-14 features are extracted from INPUT grids only (not outputs)
+    # These are used for WO-04a size prediction
+    features_receipts = []
+
+    for i, pair in enumerate(train_pairs):
+        X_i = pair["input"]
+        H_i = len(X_i)
+        W_i = len(X_i[0]) if X_i else 0
+
+        # Extract features using WO-14
+        # agg_features returns (FeatureVector, receipts_bundle)
+        feature_vec, feat_receipts = agg_features(X_i, H_i, W_i, colors_order)
+
+        features_receipts.append({
+            "train_id": i,
+            "features_hash": feat_receipts["section_hash"]
+        })
+
+    receipts.put("features.trainings", features_receipts)
+
+    # ========================================================================
+    # M1 Step 6: Choose Working Canvas (WO-04a)
+    # ========================================================================
+
+    # Prepare inputs for choose_working_canvas
+    # Need: train_pairs (dicts with X,Y), frames_in, frames_out, xstar_shape
+
+    # Build train_pairs in format expected by choose_working_canvas
+    train_pairs_for_canvas = []
+    for pair in train_pairs:
+        train_pairs_for_canvas.append({
+            "X": pair["input"],
+            "Y": pair["output"]
+        })
+
+    # Build frames_in and frames_out from canonicalize receipts
+    frames_in = []
+    frames_out = []
+
+    for receipt in frames_receipts:
+        if receipt["io_type"] == "input" and receipt["split"] == "train":
+            frames_in.append({
+                "pose": receipt["frame.pose"],
+                "anchor": receipt["frame.anchor"]
+            })
+        elif receipt["io_type"] == "output" and receipt["split"] == "train":
+            frames_out.append({
+                "pose": receipt["frame.pose"],
+                "anchor": receipt["frame.anchor"]
+            })
+
+    # xstar_shape is (H*, W*)
+    xstar_shape = (H_star, W_star)
+
+    # Call choose_working_canvas (may raise SizeUndetermined)
+    R_out, C_out, canvas_receipts = choose_working_canvas(
+        train_pairs_for_canvas,
+        frames_in,
+        frames_out,
+        xstar_shape,
+        colors_order
+    )
+
+    # Add working_canvas section to receipts
+    receipts.put("working_canvas", canvas_receipts["payload"])
+
+    # ========================================================================
+    # M1 Step 7: Seal receipts and return
     # ========================================================================
 
     # Seal receipts (no timestamps)
     receipts_bundle = receipts.digest()
 
-    # Y_placeholder = X* (identity)
+    # Y_placeholder = X* (identity; no normalization at M1)
     Y_placeholder = X_star
 
     return (Y_placeholder, receipts_bundle)
