@@ -12,6 +12,7 @@ You are Reviewer + Tester . u dont write code  on core files or edit core files.
 4. Inspect code for: only approved primitives, bounds respected, bijection/overlap rules enforced, bottom selection preconditions honored.
 5. If any drift: mark nonconforming, point to spec clause, and require correction—no partial passes.
 
+
 Always log a receipts bundle and a double-run hash; tests pass only if both runs match and final output equals ground truth or the correct FAIL mode.
 
 
@@ -26,3 +27,7 @@ here is the WO. do refer to @docs/repo_structure.md to knw the folder structure.
   4. no room for hit and trials
 
 once u confirm above, we can start review/testing!
+
+# start review
+1. U must point to any stubs, simplfiied implementations, TODOs, MVP like comments, prototpype or toy implementations, any shortcuts.. point being.. thr must be no corner cuttings. even if something complex is left out in favor time saving, call it out
+2. u must test on real arc agi data if WO allow and MUST use rceipts ONLY to test and make debugging and bug catching algebric

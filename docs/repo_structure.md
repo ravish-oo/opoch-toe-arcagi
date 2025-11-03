@@ -1,8 +1,9 @@
 arc-bit-algebra/
 ├─ README.md
 ├─ pyproject.toml
+├─ data/                            # Real arc agi data from kaggle
 ├─ docs/
-│  ├─ anchors              # math + addendum (frozen) + pure CS computing spec      
+│  ├─ anchors                        # math + addendum (frozen) + pure CS computing spec      
 │  ├─ BYTES_AND_HASHING.md           # BE row-major format; section receipts schema
 │  └─ PARAM_REGISTRY.md              # frozen orders, priorities, constants
 ├─ fixtures/
@@ -66,5 +67,6 @@ arc-bit-algebra/
 │  ├─ solve_task.py                  # python -m scripts.solve_task fixtures/arc/00576224.json
 │  ├─ sweep.py                       # batch real ARC tests → receipts/runs/<run_id>
 │  └─ compare_runs.py                # verify double-run section hashes identical
+└─ tests/
 └─ tools/
    └─ blake3/                        # vendored deterministic BLAKE3
