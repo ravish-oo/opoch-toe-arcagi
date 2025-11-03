@@ -32,6 +32,10 @@ from .frames import (
     canonicalize,
     apply_pose_anchor
 )
+from .components import (
+    Component,
+    components
+)
 
 __all__ = [
     # Planes
@@ -56,6 +60,10 @@ __all__ = [
     # Frames (WO-03)
     "canonicalize",
     "apply_pose_anchor",
+
+    # Components (WO-05)
+    "Component",
+    "components",
 
     # Receipts
     "kernel_receipts",

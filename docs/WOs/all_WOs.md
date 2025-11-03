@@ -114,30 +114,13 @@ Conventions for all WOs
 
 ---
 
-### Milestone M0 (after WO-00 + WO-01 + WO-03): “Bedrock”
+### Milestone M0 (after WO-00 + WO-01 + WO-03): “Bedrock” ✅ COMPLETED
 
 * Wire: `core/registry, core/receipts, kernel/{planes,ops}, kernel/frames`.
 * Runner does: color universe, pack↔unpack, pose canonicalize, receipts only.
 * Real-ARC check: 5 tasks → pack/unpack identity receipts; pose inverse receipts.
 
 ---
-
-## WO-04 — LCM Normalizer & Strict Downscale
-
-**Goal:** Lift differing output sizes to LCM canvas; strict reduction to final size by constant blocks only.
-
-**Interface**
-
-* `lcm_normalize_outputs(Y_list) -> (R_lcm,C_lcm, Yprime_list, scale_factors)`
-* `reduce_if_constant(Y_canvas, Rout, Cout) -> Y or SIZE_INCOMPATIBLE(first_mixed_block)`
-
-**Receipts**
-
-* `lcm_shape`, per-training `scale_factor`, `upscale_hash`; on reduce, `reduced:true/false`.
-
-**Tests**
-
-* Mixed shapes; reduction fail on non-uniform blocks.
 
 ## WO-04a — Working Canvas Provider (calls T9 early)
 
