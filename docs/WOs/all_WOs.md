@@ -68,7 +68,7 @@ Conventions for all WOs
 
 ---
 
-## WO-02 — PERIOD (1D minimal period + 2D residues)
+## WO-02 — PERIOD (1D minimal period + 2D residues) ✅ COMPLETED
 
 **Goal:** Integer KMP minimal period for rows/cols; build 2D residue masks.
 

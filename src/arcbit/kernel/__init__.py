@@ -27,6 +27,10 @@ from .period import (
     minimal_period_1d,
     period_2d_planes
 )
+from .frames import (
+    canonicalize,
+    apply_pose_anchor
+)
 
 __all__ = [
     # Planes
@@ -46,6 +50,10 @@ __all__ = [
     "minimal_period_row",
     "minimal_period_1d",
     "period_2d_planes",
+
+    # Frames (WO-03)
+    "canonicalize",
+    "apply_pose_anchor",
 
     # Receipts
     "kernel_receipts",
