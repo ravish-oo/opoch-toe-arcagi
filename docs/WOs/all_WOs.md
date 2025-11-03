@@ -425,7 +425,7 @@ Section: `working_canvas`
 
 ---
 
-## WO-14 — Aggregate Mapping (T9) — Features & Size Predictor
+## WO-14 — Aggregate Mapping (T9) — Features & Size Predictor ✅ COMPLETED
 
 **Goal:** Compute frozen features; search frozen hypothesis class; emit size (and optional color) mapping.
 
