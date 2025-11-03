@@ -1,12 +1,12 @@
 """
-WO-01: Bit-Planes & Kernel Ops
+WO-01 & WO-02: Bit-Planes & Kernel Ops
 
 Minimal kernel of pure operations on packed bit-planes.
 
 Components:
   - planes: PACK/UNPACK (grid to bit-planes)
   - ops: SHIFT, POSE, BITWISE (AND/OR/ANDN)
-  - period: minimal_period_row (KMP-based)
+  - period: minimal_period_row, minimal_period_1d, period_2d_planes (KMP-based)
 """
 
 from .planes import (
@@ -23,7 +23,9 @@ from .ops import (
     plane_andn
 )
 from .period import (
-    minimal_period_row
+    minimal_period_row,
+    minimal_period_1d,
+    period_2d_planes
 )
 
 __all__ = [
@@ -40,8 +42,10 @@ __all__ = [
     "plane_or",
     "plane_andn",
 
-    # Period
+    # Period (WO-01 & WO-02)
     "minimal_period_row",
+    "minimal_period_1d",
+    "period_2d_planes",
 
     # Receipts
     "kernel_receipts",

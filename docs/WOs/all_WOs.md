@@ -114,6 +114,14 @@ Conventions for all WOs
 
 ---
 
+### Milestone M0 (after WO-00 + WO-01 + WO-03): “Bedrock”
+
+* Wire: `core/registry, core/receipts, kernel/{planes,ops}, kernel/frames`.
+* Runner does: color universe, pack↔unpack, pose canonicalize, receipts only.
+* Real-ARC check: 5 tasks → pack/unpack identity receipts; pose inverse receipts.
+
+---
+
 ## WO-04 — LCM Normalizer & Strict Downscale
 
 **Goal:** Lift differing output sizes to LCM canvas; strict reduction to final size by constant blocks only.
@@ -133,6 +141,13 @@ Conventions for all WOs
 
 ---
 
+### Milestone M1 (after WO-04 + WO-02): “Canvas online”
+
+* Wire: `normalization/lcm_canvas`, `normalization/downscale_strict`, `kernel/period` (exposed but not used yet).
+* Runner does: LCM-lift trainings; strict downscale probe disabled by default.
+* Real-ARC check: tasks with differing output sizes → deterministic `lcm_shape` receipts; reduction fails on mixed blocks.
+
+---
 ## WO-05 — 4-CC Components & Shape Invariants
 
 **Goal:** Extract per-color components using bit ops; bbox, area, perim4, outline hash.
@@ -201,6 +216,14 @@ Conventions for all WOs
 
 ---
 
+### Milestone M3 (after WO-05 + WO-06 + WO-07): “Witness path”
+
+* Wire: `evidence/components`, `emitters/witness_learn`, `emitters/witness_emit`.
+* Runner: enables witness; selection precedence becomes **witness → unanimity → bottom** (no LFP yet).
+* Real-ARC check: 5 simple geometric copy/flip tasks solved; σ bijection receipts; no overlaps.
+
+---
+
 ## WO-08 — Output Transport & Unanimity Emitters
 
 **Goal:** Transport normalized `Y'_i` onto LCM canvas; emit unanimity.
@@ -217,6 +240,15 @@ Conventions for all WOs
 **Tests**
 
 * Agreement/disagreement; admit-all ⇒ silent handling.
+
+---
+
+### Milestone M2 (after WO-08): “Output path”
+
+* Wire: `emitters/output_transport`, `emitters/unanimity`.
+* Runner: build emits list with these two; keep witness/lattice disabled.
+* Selection precedence: engine_winner not present yet → selection uses unanimity only (witness absent).
+* Real-ARC check: 5 consensus tasks solved bit-exact; receipts show unanimity counts, EngineWinner absent.
 
 ---
 
@@ -285,6 +317,14 @@ Conventions for all WOs
 
 ---
 
+### Milestone M4 (after WO-10 + WO-11): “True LFP”
+
+* Wire: `constraints/forbids` (can return None), `constraints/ac3`, `propagation/lfp`.
+* Runner: domains init → admit-∧ (witness, output, unanimity) → AC-3 → fixed point → selection.
+* Real-ARC check: Stage M2/M3 tasks yield identical outputs pre- vs post-LFP; UNSAT path receipts OK.
+
+---
+
 ## WO-12 — EngineWinner Chooser (global, training-scope)
 
 **Goal:** If multiple engines fit trainings, pick the single winner deterministically.
@@ -305,6 +345,14 @@ Conventions for all WOs
 **Tests**
 
 * Tie cases across two families.
+
+---
+
+### Milestone M5 (after WO-09 + WO-12): “EngineWinner + Lattice”
+
+* Wire: `emitters/lattice`, `selection/engine_winner`.
+* Runner: now passes **witness → engine_winner (global) → unanimity → bottom**.
+* Real-ARC check: tiling task solved; receipts show `(p_r,p_c)` and EngineWinner chosen by training scope, tie priority frozen.
 
 ---
 
@@ -368,6 +416,14 @@ Conventions for all WOs
 
 ---
 
+### Milestone M6 (after WO-14 + WO-15): “Size finalize”
+
+* Wire: `evidence/features`, `sizing/aggmap_size`, `normalization/downscale_strict` final step.
+* Runner: if T9 size present, perform strict block-constant reduction; else keep canvas size.
+* Real-ARC check: argmax-uniform + size-mapping tasks solved; receipts show `size_fit.attempts` and `reduced:true` (constant blocks only).
+
+---
+
 ## WO-16 — Optional Engines (each its own ≤500 LOC)
 
 Pick and schedule only as needed; each compiles to `(A,S)` using WO-01 ops.
@@ -380,6 +436,14 @@ Pick and schedule only as needed; each compiles to `(A,S)` using WO-01 ops.
 * **WO-16F CSP micro-solver**: ≤3×3 tiles, Hopcroft–Karp, lex-min matching.
 
 Each optional WO ships its **own** attempts log and winner receipts.
+
+---
+
+### Milestone M7+ (each optional engine from WO-16x)
+
+* Wire one emitter at a time (e.g., `icl_conv`, `icl_kron`, `morph`, `logic_guard`, `param_icl`).
+* Runner: add to emits; EngineWinner decides globally.
+* Real-ARC check: 3–5 tasks per engine; receipts list attempts and chosen kernel/factors/predicates.
 
 ---
 
@@ -431,3 +495,72 @@ Each optional WO ships its **own** attempts log and winner receipts.
 * T9 (WO-14/15) is isolated; downscale is strict, preserving “no minted bits.”
 
 If you want, I can now expand **WO-01** with function signatures, row-mask packing format, and exact unit cases so Claude Code can start coding without guessing.
+
+
+====
+You’re thinking correctly: don’t leave integration to the end. Keep a **single runner file** and grow it incrementally as WOs land. That’s efficient and safer, provided we freeze the runner’s contract now and treat missing layers as **silent** (A=all, S=0) rather than stubbing behavior.
+
+Here’s exactly how to “squeeze” progressive integration into the current WO plan (WO-02 is WIP).
+
+# Freeze the runner contract now (one file, grown incrementally)
+
+`src/arcbit/runner/solve.py` must exist **now** with this stable flow (no logic beyond wiring):
+
+```
+def solve(task_json):
+  C = color_universe(task_json)                     # includes 0 and test colors
+  frames = canonicalize_all(task_json)              # D4 + anchor
+  Yprime, lcm_shape = lcm_normalize_outputs(train_outputs)
+
+  emits = []
+  if ENABLE_OUTPUT:   emits += [emit_output_transport(Yprime)]
+  if ENABLE_WITNESS:  emits += [emit_witness(X_star, learn_witness(...))]
+  if ENABLE_UNANIMITY: emits += [emit_unanimity(Yprime)]
+  if ENABLE_LATTICE:  emits += [emit_lattice(Yprime)]
+  # optional engines gated similarly
+
+  Dstar = lfp_propagate(full_domain(C), emits, forbids_opt=None)
+  engine = pick_engine_winner(train_scope_stats(emits))  # returns None until added
+  Y_canvas = select(Dstar, wit_layer(emits), engine_layer(emits), uni_layer(emits))
+  Y_final = reduce_if_constant(Y_canvas, predicted_size_opt)  # size predictor None until added
+
+  return Y_final, receipts_bundle
+```
+
+Anything not implemented yet returns a **silent** emitter `(A=all, S=0)` or `None` (for size), never a behavioral stub. Receipts are still produced for every section (even when silent).
+
+# Progressive integration milestones (tie to your WOs)
+
+You’re mid WO-02; use these milestones. Each one is tiny and just wires the runner to the newly-finished WOs, then tests on real ARC slices.
+
+
+
+
+
+
+
+# Where this changes your current WO flow
+
+* **Don’t wait for WO-17**. The runner exists from M0 and never changes its shape; you only flip feature flags as WOs complete.
+* For each WO completion, create a tiny **integration PR** that:
+
+  1. imports the new module into `solve.py`,
+  2. adds a feature flag defaulting **on**,
+  3. drops 3–5 real ARC JSONs into `fixtures/arc/` for that milestone.
+     No test framework needed beyond our receipts and final grid equality.
+
+# Why a single file grown over time is safe here
+
+* The runner contract is **frozen**; missing pieces return **silent** admits or `None`. You can wire without stubs that change behavior later.
+* Receipts are **sectioned** and exist from M0, so every integration is algebraically traceable (hash diffs localize regressions).
+* Each milestone exercises **real tasks** for that path only, catching interface drift early.
+
+# Tiny instructions per role
+
+**Implementer (per milestone):**
+Wire the new module into `solve.py` behind a feature flag; return silent layer if inputs are missing; emit receipts for the new section; keep ≤ ~50 LOC changes.
+
+**Reviewer (per milestone, real ARC only):**
+Run `scripts/solve_task.py` on the curated slice; verify double-run identical section hashes; check milestone-specific receipts (e.g., unanimity counts at M2, σ receipts at M3, LFP passes at M4); confirm no minted bits and strict downscale only.
+
+This gives you continuous end-to-end integration without ever having to “merge 15 pieces at once,” and it aligns perfectly with the math and computing specs.
