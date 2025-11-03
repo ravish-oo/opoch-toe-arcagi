@@ -40,15 +40,20 @@ def minimal_period_row(mask: int, W: int) -> int | None:
         Period 1 (constant rows) is EXCLUDED (returns None).
 
     Examples:
-        >>> minimal_period_row(0b101010, 6)  # "101010" → period 2
+        Proper periods (p ≥ 2):
+        >>> minimal_period_row(0b101010, 6)  # "010101" → period 2
         2
-        >>> minimal_period_row(0b110110, 6)  # "110110" → period 3
+        >>> minimal_period_row(0b110110, 6)  # "011011" → period 3
         3
-        >>> minimal_period_row(0b111111, 6)  # constant row → None (period 1 excluded)
+
+        Constant rows (period 1 excluded, return None):
+        >>> minimal_period_row(0b111111, 6)  # "111111" (all 1s) → None
         None
-        >>> minimal_period_row(0b000000, 6)  # constant row → None (period 1 excluded)
+        >>> minimal_period_row(0b000000, 6)  # "000000" (all 0s) → None
         None
-        >>> minimal_period_row(0b101011, 6)  # no period
+
+        No proper period:
+        >>> minimal_period_row(0b101011, 6)  # "110101" (no period) → None
         None
     """
     if W == 0:
@@ -138,8 +143,9 @@ def period_2d_planes(
     planes: Dict[int, List[int]],
     H: int,
     W: int,
-    colors_order: List[int]
-) -> Tuple[Optional[int], Optional[int], List[List[int]]]:
+    colors_order: List[int],
+    return_receipts: bool = False
+):
     """
     Compute minimal 2D periods (p_r, p_c) for multi-color grid.
 
@@ -151,14 +157,19 @@ def period_2d_planes(
         H: Height (number of rows).
         W: Width (number of columns).
         colors_order: Ordered list of colors (ascending integers).
+        return_receipts: If True, return 4-tuple with receipts.
 
     Returns:
-        Tuple of (p_r, p_c, residues):
-          - p_r: Row period (>= 2) or None
-          - p_c: Column period (>= 2) or None
-          - residues: List of residue masks (list[int] per residue)
-                      Empty if both periods are None.
-                      Ordered row-major: residue i*p_c + j for i in [0..p_r-1], j in [0..p_c-1]
+        If return_receipts=False (default):
+          Tuple of (p_r, p_c, residues)
+        If return_receipts=True:
+          Tuple of (p_r, p_c, residues, receipts):
+            - p_r: Row period (>= 2) or None
+            - p_c: Column period (>= 2) or None
+            - residues: List of residue masks (list[int] per residue)
+                        Empty if both periods are None.
+                        Ordered row-major: residue i*p_c + j for i in [0..p_r-1], j in [0..p_c-1]
+            - receipts: Receipts dict (if return_receipts=True)
 
     Spec:
         WO-02: period_2d_planes.
@@ -195,18 +206,26 @@ def period_2d_planes(
     # Edge cases: small grids
     if H < 2 or W < 2:
         # Cannot have proper period (>= 2) on axis with length < 2
-        p_r = None if H < 2 else None  # will be computed if H >= 2
-        p_c = None if W < 2 else None  # will be computed if W >= 2
-
         # If either dimension too small, no proper 2D period possible
-        if H < 2 or W < 2:
-            return (None, None, [])
+        p_r, p_c = None, None
+        residues = []
+
+        if return_receipts:
+            # Generate receipts for edge case
+            receipts = period_receipts(
+                planes, H, W, colors_order,
+                p_r, p_c, residues,
+                row_periods=[], col_periods=[]
+            )
+            return (p_r, p_c, residues, receipts)
+        else:
+            return (p_r, p_c, residues)
 
     # ========================================================================
     # Column period (p_c): analyze rows
     # ========================================================================
 
-    row_periods = []  # Non-None periods from each row
+    row_periods = []  # Proper periods (p >= 2) from each row
 
     for r in range(H):
         # Build symbol sequence for row r across columns
@@ -219,10 +238,11 @@ def period_2d_planes(
         # Compute minimal period of this symbol sequence
         t_r = _minimal_period_tuples(sym_r)
 
-        if t_r is not None:
+        # Defensive: filter out period 1 (should never happen, but defense in depth)
+        if t_r is not None and t_r >= 2:
             row_periods.append(t_r)
 
-    # Compute LCM of row periods
+    # Compute LCM of row periods (nontrivial only)
     if len(row_periods) == 0:
         p_c_candidate = None
     else:
@@ -254,7 +274,7 @@ def period_2d_planes(
     # Row period (p_r): analyze columns
     # ========================================================================
 
-    col_periods = []  # Non-None periods from each column
+    col_periods = []  # Proper periods (p >= 2) from each column
 
     for c in range(W):
         # Build symbol sequence for column c across rows
@@ -267,10 +287,11 @@ def period_2d_planes(
         # Compute minimal period of this symbol sequence
         t_c = _minimal_period_tuples(sym_c)
 
-        if t_c is not None:
+        # Defensive: filter out period 1 (should never happen, but defense in depth)
+        if t_c is not None and t_c >= 2:
             col_periods.append(t_c)
 
-    # Compute LCM of column periods
+    # Compute LCM of column periods (nontrivial only)
     if len(col_periods) == 0:
         p_r_candidate = None
     else:
@@ -304,7 +325,19 @@ def period_2d_planes(
 
     residues = _build_residue_masks(p_r, p_c, H, W)
 
-    return (p_r, p_c, residues)
+    # ========================================================================
+    # Generate receipts if requested
+    # ========================================================================
+
+    if return_receipts:
+        receipts = period_receipts(
+            planes, H, W, colors_order,
+            p_r, p_c, residues,
+            row_periods, col_periods
+        )
+        return (p_r, p_c, residues, receipts)
+    else:
+        return (p_r, p_c, residues)
 
 
 def _minimal_period_tuples(symbols: List[tuple]) -> Optional[int]:
@@ -463,3 +496,87 @@ def _build_residue_masks(
             residues.append(mask_rows)
 
     return residues
+
+
+def period_receipts(
+    planes: Dict[int, List[int]],
+    H: int,
+    W: int,
+    colors_order: List[int],
+    p_r: Optional[int],
+    p_c: Optional[int],
+    residues: List[List[int]],
+    row_periods: List[int],
+    col_periods: List[int]
+) -> Dict:
+    """
+    Generate receipts for period_2d_planes computation.
+
+    Args:
+        planes: Bit-planes dict.
+        H: Height.
+        W: Width.
+        colors_order: Ordered colors.
+        p_r: Final row period (or None).
+        p_c: Final column period (or None).
+        residues: Residue masks.
+        row_periods: List of proper periods from each row (filtered, no 1s).
+        col_periods: List of proper periods from each column (filtered, no 1s).
+
+    Returns:
+        dict: Receipt with inputs, candidates, validation, residues, section_hash.
+
+    Spec:
+        Sub-WO-02a: PERIOD receipts (proper periods only, phase fixed at (0,0)).
+    """
+    from ..core import blake3_hash
+    import json
+
+    K = len(colors_order)
+
+    # Compute LCM candidates
+    p_c_lcm_pre = _lcm_list(row_periods) if len(row_periods) > 0 else None
+    p_r_lcm_pre = _lcm_list(col_periods) if len(col_periods) > 0 else None
+
+    # Validation flags
+    p_r_valid = (p_r is not None)
+    p_c_valid = (p_c is not None)
+
+    # Residue popcounts (first two for sanity check)
+    residue_popcounts = []
+    for res_idx, res_mask in enumerate(residues[:2]):  # First two only
+        popcount = sum(bin(mask).count('1') for mask in res_mask)
+        residue_popcounts.append({"residue_idx": res_idx, "popcount": popcount})
+
+    receipts = {
+        "period.inputs": {
+            "H": H,
+            "W": W,
+            "K": K,
+            "colors_count": len(colors_order)
+        },
+        "period.candidates": {
+            "row_periods_nontrivial": row_periods,  # No 1s (filtered)
+            "col_periods_nontrivial": col_periods,  # No 1s (filtered)
+            "p_r_lcm_pre": p_r_lcm_pre,
+            "p_c_lcm_pre": p_c_lcm_pre
+        },
+        "period.validation": {
+            "p_r_valid": p_r_valid,
+            "p_c_valid": p_c_valid,
+            "p_r": p_r,
+            "p_c": p_c,
+            "phase": [0, 0]  # Always fixed at (0,0)
+        },
+        "period.residues": {
+            "count": len(residues),
+            "first_two_popcounts": residue_popcounts
+        }
+    }
+
+    # Section hash
+    receipts_bytes = json.dumps(receipts, sort_keys=True).encode('utf-8')
+    section_hash = blake3_hash(receipts_bytes)
+    receipts["section_hash"] = section_hash
+
+    return receipts

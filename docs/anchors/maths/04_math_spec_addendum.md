@@ -28,6 +28,8 @@ A.3 Hash & determinism
 
 B. Frames, LCM & Size
 
+B.0 “Working canvas prediction” with H1..H7 + tie rule + SIZE_UNDETERMINED.
+
 B.1 Canonical D4 frame (pose)
 
 Given grid G\in\mathbb Z^{H\times W}:
@@ -38,20 +40,7 @@ Given grid G\in\mathbb Z^{H\times W}:
 	4.	Anchor: find first nonzero pixel by row-major; translate so it becomes (0,0).
 Receipts: pose_id, pose_tie_count, anchor=(dr,dc).
 
-B.2 LCM normalization for unanimity
-	•	If training outputs’ shapes differ, compute R_{lcm}=\mathrm{LCM}(R_i), C_{lcm}=\mathrm{LCM}(C_i).
-	•	Lift each Y_i to (R_{lcm},C_{lcm}) by block replication (exact; no interpolation).
-	•	Unanimity/transport works on LCM canvas.
-	•	Final test size comes from EngineWinner (usually T9). If EngineWinner size divides LCM, block-downsample (see B.3). Otherwise SIZE_INCOMPATIBLE (fail-closed).
-
-B.3 Downscaling (LCM → final)
-
-Partition into k_r\times k_c blocks:
-	•	If uniform color in the block → write that color.
-	•	Else majority vote; tie → lex-min color.
-Receipts: downscale_majority_used: true|false, lcmsize, finalsize.
-
-B.4 Size predictor (T9) — explicit & finite
+B.2 Size predictor (T9) — explicit & finite
 
 Features (frozen; integers only):
 	•	H,W

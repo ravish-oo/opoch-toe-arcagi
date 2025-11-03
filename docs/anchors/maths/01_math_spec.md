@@ -90,17 +90,20 @@ You keep only the instances that reconstruct the trainings exactly. Each instanc
 	•	Forward: apply \(\phi_i^\\) to input color planes to admit \(\sigma_i^\(c)\) at targets.
 	•	Output transport: transport Y’_i into Π_out* and admit its colors at those pixels.
 The set for witness is the AND (intersection) across trainings.
+emits on ( 𝑅 𝑜 𝑢 𝑡 , 𝐶 𝑜 𝑢 𝑡 ) (R out ​ ,C out ​ ), no LCM.
 
 Receipts: per training: piece list, pullback samples proving conjugation, \sigma Lehmer code & moved count; admits hashes & scope sizes.
 
 (T2) Unanimity (output consensus)
 	•	In Π_out*, for each pixel p, if all transported Y’_i agree on the same color u, admit \{u\} with scope 1; else silent.
+	•	include replicate/decimate inclusion logic and exclusion rule.
 
 Receipts: unanimity mask hash, tally of agreement/disagreement.
 
 (T3) Lattice (periodicity) on outputs
 	•	Over transported outputs in Π_out*, detect exact 1D/2D periods (rows/cols) by integer KMP and exact equality.
 	•	Admit the unique period-consistent color in each residue class if all trainings agree; else silent.
+	•	KMP and agreement computed on the working canvas.
 
 Receipts: period vectors, residue class admits, counters.
 

@@ -25,7 +25,8 @@ from .ops import (
 from .period import (
     minimal_period_row,
     minimal_period_1d,
-    period_2d_planes
+    period_2d_planes,
+    period_receipts
 )
 from .frames import (
     canonicalize,
@@ -50,6 +51,7 @@ __all__ = [
     "minimal_period_row",
     "minimal_period_1d",
     "period_2d_planes",
+    "period_receipts",
 
     # Frames (WO-03)
     "canonicalize",

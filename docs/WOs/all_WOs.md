@@ -139,6 +139,70 @@ Conventions for all WOs
 
 * Mixed shapes; reduction fail on non-uniform blocks.
 
+## WO-04a — Working Canvas Provider (calls T9 early)
+
+**Purpose**
+Decide the **single working canvas** size ((R_{out}, C_{out})) **once up front** using T9 size hypotheses (H1..H7) from trainings only. No LCM logic remains.
+
+**Interface (pure, receipts-first)**
+
+```python
+def choose_working_canvas(train_pairs, frames_in, frames_out) -> (R_out:int, C_out:int, size_fit:dict)
+"""
+Inputs:
+  - train_pairs: list of {X_i, Y_i} raw grids
+  - frames_in:   per-input canonical frames Π_in (pose, anchor) for each X_i
+  - frames_out:  per-output canonical frames Π_out for each Y_i
+Process:
+  1) Compute frozen T9 feature vectors from trainings (counts, H,W, CC stats, proper periods, etc.)
+  2) Evaluate hypotheses H1..H7 in frozen order; a hypothesis FITS iff it reproduces *each* Y_i.size exactly
+  3) Tie break: smallest area R'·C', then family id, then parameter lex
+  4) Apply winner to test input size (in Π_in* / Π_out* context) to get (R_out, C_out)
+
+Outputs:
+  - R_out, C_out  (working canvas)
+  - size_fit: { "winner": "Hk", "params": {...}, "attempts": [...ordered list...],
+                "verified_train_ids": [ ... ] }
+Fail-closed:
+  - If no hypothesis fits → raise SizeUndetermined with a receipt
+"""
+```
+
+**Frozen hypotheses (restate here for implementer clarity)**
+
+* **H1 (multiplicative):** (R'=aR, C'=cW, a,c\in{1..8})
+* **H2 (additive):** (R'=R+b, C'=W+d, b,d\in{0..16})
+* **H3 (mixed affine):** (R'=aR+b, C'=cW+d) with bounds above
+* **H4 (constant):** (R'=R_0, C'=C_0)
+* **H5 (period lcm/gcd):** from **proper** KMP periods (p≥2), phase=(0,0)
+* **H6 (floor stride):** (R'=\lfloor R/k_r\rfloor,\ C'=\lfloor W/k_c\rfloor,\ k\in{2..5})
+* **H7 (ceil stride):** (R'=\lceil R/k_r\rceil,\ C'=\lceil W/k_c\rceil)
+
+**Tie rules (frozen):** min area (R'·C') → then family id → then params lex.
+
+**Invariants**
+
+* Uses **trainings only** (no test leakage) to pick the hypothesis.
+* Deterministic: same inputs → same winner and params.
+* If none fits **every** training exactly → **fail-closed** with `SIZE_UNDETERMINED`.
+
+**Receipts (first-class)**
+Section: `working_canvas`
+
+* `features_hash_per_training` (BLAKE3 of each frozen feature vector)
+* `attempts`: ordered list like `[{family:"H1", params:{...}, ok_train_ids:[...]} , ...]`
+* `winner`: `{family:"Hk", params:{...}}`
+* `R_out`, `C_out`
+* `section_hash` (WO-00)
+
+**Failure mode**
+
+* `SIZE_UNDETERMINED` with receipt fields above plus `first_counterexample` (training id + expected vs predicted sizes).
+
+**Reviewer quick-check (real ARC)**
+
+* On a task with varying training sizes, `choose_working_canvas` returns a single ((R_{out},C_{out})) with a full `attempts` trail; no LCM fields anywhere.
+
 ---
 
 ### Milestone M1 (after WO-04 + WO-02): “Canvas online”

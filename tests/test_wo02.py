@@ -285,6 +285,129 @@ def test_period_2d_multicolor():
     print(f"✓ Multi-color (K=3): p_r={p_r}, p_c={p_c}, {len(residues)} residues")
 
 
+def test_period_receipts_structure():
+    """Test Sub-WO-02a: Receipts structure and proper periods only (p >= 2)."""
+    print("Testing period receipts structure...")
+
+    # 4x4 checkerboard with period (2, 2)
+    G = [
+        [0, 1, 0, 1],
+        [1, 0, 1, 0],
+        [0, 1, 0, 1],
+        [1, 0, 1, 0]
+    ]
+    H, W = 4, 4
+    colors = [0, 1]
+
+    planes = pack_grid_to_planes(G, H, W, colors)
+    p_r, p_c, residues, receipts = period_2d_planes(planes, H, W, colors, return_receipts=True)
+
+    # Verify structure
+    assert "period.inputs" in receipts, "Missing period.inputs section"
+    assert "period.candidates" in receipts, "Missing period.candidates section"
+    assert "period.validation" in receipts, "Missing period.validation section"
+    assert "period.residues" in receipts, "Missing period.residues section"
+    assert "section_hash" in receipts, "Missing section_hash"
+
+    # Verify inputs section
+    assert receipts["period.inputs"]["H"] == H
+    assert receipts["period.inputs"]["W"] == W
+    assert receipts["period.inputs"]["K"] == 2
+
+    # Verify candidates section (no 1s allowed!)
+    row_periods = receipts["period.candidates"]["row_periods_nontrivial"]
+    col_periods = receipts["period.candidates"]["col_periods_nontrivial"]
+    assert 1 not in row_periods, f"Period 1 found in row_periods: {row_periods}"
+    assert 1 not in col_periods, f"Period 1 found in col_periods: {col_periods}"
+
+    # Verify all periods are >= 2
+    for p in row_periods:
+        assert p >= 2, f"Invalid period {p} in row_periods (must be >= 2)"
+    for p in col_periods:
+        assert p >= 2, f"Invalid period {p} in col_periods (must be >= 2)"
+
+    # Verify validation section
+    assert receipts["period.validation"]["p_r"] == 2
+    assert receipts["period.validation"]["p_c"] == 2
+    assert receipts["period.validation"]["phase"] == [0, 0]
+
+    # Verify residues section
+    assert receipts["period.residues"]["count"] == 4
+    assert len(receipts["period.residues"]["first_two_popcounts"]) == 2
+
+    print("✓ Receipts structure correct (no period 1, all p >= 2)")
+
+
+def test_period_receipts_solid_rows():
+    """Test receipts for solid rows (constant, no period)."""
+    print("Testing receipts for solid rows...")
+
+    # 3x6 grid: all zeros (constant)
+    G = [
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0]
+    ]
+    H, W = 3, 6
+    colors = [0]
+
+    planes = pack_grid_to_planes(G, H, W, colors)
+    p_r, p_c, residues, receipts = period_2d_planes(planes, H, W, colors, return_receipts=True)
+
+    # Verify no periods found
+    assert p_r is None, "Expected p_r=None for solid rows"
+    assert p_c is None, "Expected p_c=None for solid rows"
+    assert len(residues) == 0, "Expected no residues for solid rows"
+
+    # Verify candidates are empty (no nontrivial periods)
+    assert receipts["period.candidates"]["row_periods_nontrivial"] == []
+    assert receipts["period.candidates"]["col_periods_nontrivial"] == []
+
+    # Verify validation flags
+    assert receipts["period.validation"]["p_r_valid"] == False
+    assert receipts["period.validation"]["p_c_valid"] == False
+
+    print("✓ Solid rows: no periods, empty candidates, correct flags")
+
+
+def test_period_receipts_determinism():
+    """Test Sub-WO-02a: Determinism (double-run must produce identical receipts)."""
+    print("Testing period receipts determinism...")
+
+    # 4x6 grid with period (2, 3)
+    G = [
+        [0, 1, 2, 0, 1, 2],
+        [1, 2, 0, 1, 2, 0],
+        [0, 1, 2, 0, 1, 2],
+        [1, 2, 0, 1, 2, 0]
+    ]
+    H, W = 4, 6
+    colors = [0, 1, 2]
+
+    planes = pack_grid_to_planes(G, H, W, colors)
+
+    # Run 1
+    p_r_1, p_c_1, residues_1, receipts_1 = period_2d_planes(planes, H, W, colors, return_receipts=True)
+
+    # Run 2 (identical input)
+    p_r_2, p_c_2, residues_2, receipts_2 = period_2d_planes(planes, H, W, colors, return_receipts=True)
+
+    # Verify identical results
+    assert p_r_1 == p_r_2, "p_r not deterministic"
+    assert p_c_1 == p_c_2, "p_c not deterministic"
+    assert residues_1 == residues_2, "residues not deterministic"
+
+    # Verify identical receipts (compare section_hash)
+    assert receipts_1["section_hash"] == receipts_2["section_hash"], \
+        "Receipts not deterministic (section_hash differs)"
+
+    # Verify identical candidates (critical: must be deterministic)
+    assert receipts_1["period.candidates"] == receipts_2["period.candidates"], \
+        "Candidates not deterministic"
+
+    print(f"✓ Determinism verified: double-run produces identical section_hash")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("WO-02 Verification Tests")
@@ -302,6 +425,16 @@ if __name__ == "__main__":
 
     print()
     print("=" * 60)
+    print("Sub-WO-02a: PERIOD Receipts Tests")
+    print("=" * 60)
+    print()
+
+    test_period_receipts_structure()
+    test_period_receipts_solid_rows()
+    test_period_receipts_determinism()
+
+    print()
+    print("=" * 60)
     print("✅ All WO-02 tests passed!")
     print("=" * 60)
     print()
@@ -312,3 +445,11 @@ if __name__ == "__main__":
     print("  - Residue masks with phase (0,0)")
     print("  - Pure tuple equality (no hashing)")
     print("  - Deterministic, no floats, exact")
+    print()
+    print("Sub-WO-02a: PERIOD Receipts Complete:")
+    print("  - Proper periods only (p >= 2, no period 1)")
+    print("  - Defensive filtering (t >= 2 gate)")
+    print("  - Receipts structure: inputs, candidates, validation, residues")
+    print("  - Determinism verified (double-run → identical section_hash)")
+    print("  - Phase fixed at (0,0)")
+    print("  - No 1s in row_periods_nontrivial or col_periods_nontrivial")
