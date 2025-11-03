@@ -34,3 +34,4 @@ once u confirm above, we can start review/testing!
 do refer to docs/repo_structure.md to knw what to find whr..
 1. U must point to any stubs, simplfiied implementations, TODOs, MVP like comments, prototpype or toy implementations, any shortcuts.. point being.. thr must be no corner cuttings. even if something complex is left out in favor time saving, call it out
 2. u must test on real arc agi data if WO allow and MUST use rceipts ONLY to test and make debugging and bug catching algebric. real data is in data/ folder
+3. u must focus on Invariants to assert.
