@@ -251,3 +251,28 @@ return Y  # no finalize downscale
 ## Final recommendation
 
 Proceed with v1.6. It simplifies implementation, removes the biggest conceptual ambiguity, and stays faithful to the “no heuristics, receipts-first” contract. Apply the freezes above, update the doc, and patch the affected WOs/runner exactly as listed.
+
+## Some misses
+wo-10  
+
+### First
+4. Type 2 Directed Forbids: WORKING (conservative) ⚠️
+    - Requires ALL four orientations to have non-vacuous evidence
+    - Very rare in practice (by design)
+    - 5/7 passing real tasks show forbid_symmetric: False ✅
+ Results: 7/10 tasks passed (3 correctly rejected)
+
+### second
+  | Task ID  | Status   | Canvas | Forbid Symmetric | Edge Count | Notes                              |
+  |----------|----------|--------|------------------|------------|------------------------------------|
+  | 00576224 | ✅ PASS   | 6×6    | False            | 120        | Type 2 forbids present             |
+  | 007bbfb7 | ✅ PASS   | 9×9    | False            | 288        | Type 2 forbids present             |
+  | 009d5c81 | ✅ PASS   | 14×14  | False            | 728        | Type 2 forbids present             |
+  | 00d62c1b | ❌ REJECT | -      | -                | -          | ValueError: Non-uniform dimensions |
+  | 00dbd492 | ❌ REJECT | -      | -                | -          | ValueError: Non-uniform dimensions |
+  | 017c7c7b | ✅ PASS   | 9×3    | True             | 84         | No forbids learned                 |
+  | 025d127b | ❌ REJECT | -      | -                | -          | ValueError: Non-uniform dimensions |
+  | 03560426 | ✅ PASS   | 10×10  | False            | 360        | Type 2 forbids present             |
+  | 045e512c | ✅ PASS   | 21×21  | False            | 1680       | Type 2 forbids present             |
+  | 0520fde7 | ✅ PASS   | 3×3    | True             | 24         | M[2][2]=1 only                     |
+

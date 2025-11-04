@@ -6,16 +6,16 @@ Milestone-based runner that evolves incrementally:
   - M1': Working canvas selection via WO-14 + WO-04a with H1-H9 ✅
   - M2: Output path (transport + unanimity) ✅
   - M3: Witness path (components, learn, emit, minimal selector) ✅
+  - M4: True LFP (forbids + admit-∧ + AC-3) ✅
 
-Current Implementation (M2 + M3):
+Current Implementation (M4):
   - M0/M1' sections unchanged
   - M2: WO-08 output transport + unanimity (always enabled)
   - M3: WO-05/06/07 witness path (optional, with_witness=True)
-  - Minimal selector: M3 (witness → unanimity → bottom) OR M2 (unanimity → bottom)
-  - No LFP yet (M4), no domain propagation
+  - M4: WO-10/11 LFP propagation (forbids + AC-3, always enabled)
+  - Selector: witness → unanimity → bottom (no EngineWinner yet)
 
 Future milestones:
-  - M4: LFP (admit-∧ + AC-3)
   - M5: Lattice + EngineWinner
 """
 
@@ -33,6 +33,8 @@ from .features import agg_features
 from .canvas import choose_working_canvas, SizeUndetermined, parse_families, FULL_FAMILY_SET
 from .kernel.components import components
 from .emitters import learn_witness, emit_witness, emit_output_transport, emit_unity
+from .emitters.forbids import learn_forbids, build_4neighbor_graph
+from .emitters.lfp import lfp_propagate
 
 
 # ============================================================================
@@ -220,9 +222,10 @@ def solve(
     """
     ARC-AGI deterministic solver (milestone-based).
 
-    Current Implementation (M2 + M3):
+    Current Implementation (M4):
       M2: Output path (transport + unanimity)
       M3: Witness path (optional)
+      M4: True LFP (forbids + admit-∧ + AC-3)
 
       Steps:
         M0 sections:
@@ -244,12 +247,18 @@ def solve(
           10) Learn witness per training (WO-06: rigid pieces + σ)
           11) Emit global witness (WO-07: conjugation + forward mapping)
 
+        M4 sections:
+          12) Learn forbids from training outputs (WO-10: Type 1 + Type 2)
+          13) Assemble emitters in frozen family order (T1_witness, T2_unity, ...)
+          14) Initialize D0 to all-ones (top of lattice)
+          15) Run LFP propagation (WO-11: admit-∧ + AC-3, monotone fixed point)
+          16) Handle UNSAT/FIXED_POINT_NOT_REACHED (fail-closed)
+
         Final sections:
-          12) Minimal selector (M3: witness → unanimity → bottom OR M2: unanimity → bottom)
-          13) Seal receipts and return
+          17) Selector (witness → unanimity → bottom)
+          18) Seal receipts and return
 
     Future Milestones:
-      - M4: LFP (admit-∧ + AC-3)
       - M5: Lattice + EngineWinner
 
     Args:
@@ -779,8 +788,104 @@ def solve(
         receipts.put("witness_emit", witness_emit_receipts["payload"])
 
     # ========================================================================
-    # M2/M3 Step 10: Minimal Selector
+    # M4 Step 0: Learn Forbids (WO-10)
     # ========================================================================
+
+    # Reconstruct Y_train_on_canvas from transports
+    # These are the normalized training outputs on the working canvas
+    Y_train_on_canvas = []
+    included_train_ids = []
+
+    for i, (A_out_i, S_out_i) in enumerate(zip(A_out_list, S_out_list)):
+        # Check if this training is silent (no scope)
+        has_scope = any(row != 0 for row in S_out_i)
+        if not has_scope:
+            continue  # Skip silent trainings
+
+        included_train_ids.append(i)
+
+        # Reconstruct grid from planes
+        Y_i = [[0] * C_out for _ in range(R_out)]
+        for r in range(R_out):
+            scope_row = S_out_i[r] if r < len(S_out_i) else 0
+            if scope_row == 0:
+                continue
+
+            for c in range(C_out):
+                bit = 1 << c
+                if not (scope_row & bit):
+                    continue
+
+                # Find the unique color (singleton from WO-08)
+                for color in colors_order:
+                    plane = A_out_i.get(color)
+                    if plane and r < len(plane):
+                        if plane[r] & bit:
+                            Y_i[r][c] = color
+                            break
+
+        Y_train_on_canvas.append(Y_i)
+
+    # Learn forbids from training outputs
+    M_matrix, forbids_receipt = learn_forbids(
+        Y_train_on_canvas, included_train_ids, colors_order
+    )
+    E_graph = build_4neighbor_graph(R_out, C_out)
+
+    # Add forbids receipts
+    receipts.put("forbids", forbids_receipt)
+
+    # ========================================================================
+    # M4 Step 1-3: Assemble Emitters + Initialize D0 + Run LFP (WO-11)
+    # ========================================================================
+
+    # Assemble emitters in frozen family order (T1...T12)
+    # At M4, we only have T1 (witness) and T2 (unanimity)
+    emitters_list = []
+
+    if with_witness:
+        emitters_list.append(("T1_witness", A_wit, S_wit))
+
+    # T2_unity (unanimity) - always add if available
+    emitters_list.append(("T2_unity", A_uni, S_uni))
+
+    # Initialize D0 to all-ones (top of lattice)
+    D0 = {(r, c): ((1 << len(colors_order)) - 1) for r in range(R_out) for c in range(C_out)}
+
+    # Run LFP propagation
+    forbids_tuple = (E_graph, M_matrix) if E_graph and M_matrix else None
+
+    result = lfp_propagate(
+        D0, emitters_list, forbids=forbids_tuple,
+        colors_order=colors_order, R_out=R_out, C_out=C_out
+    )
+
+    # Handle UNSAT or FIXED_POINT_NOT_REACHED (fail-closed)
+    if isinstance(result, tuple) and isinstance(result[0], str):
+        # UNSAT or FIXED_POINT_NOT_REACHED
+        status, lfp_stats = result
+
+        # Add LFP receipts with failure status
+        receipts.put("lfp", lfp_stats)
+        receipts.put("lfp_status", status)
+
+        # Seal receipts and return with empty grid (fail-closed)
+        receipts_bundle = receipts.digest()
+        Y_out = [[0] * C_out for _ in range(R_out)]
+        return (Y_out, receipts_bundle)
+
+    # Success: extract D* and stats
+    D_star, lfp_stats = result
+
+    # Add LFP receipts
+    receipts.put("lfp", lfp_stats)
+    receipts.put("lfp_status", "SUCCESS")
+
+    # ========================================================================
+    # M4 Step 4: Selector (Witness → Unanimity → Bottom)
+    # ========================================================================
+    # Note: At M4 with all-ones D0, D* is typically the admits intersection.
+    # Selection precedence remains witness → unanimity → bottom (no EngineWinner yet)
 
     if with_witness:
         # M3: Witness → Unanimity → Bottom

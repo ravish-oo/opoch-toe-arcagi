@@ -342,7 +342,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-## WO-11 — Domain Tensor & LFP Propagator
+## WO-11 — Domain Tensor & LFP Propagator ✅ COMPLETED
 
 **Goal:** The monotone loop: admit-intersect in fixed order, then AC-3, to LFP.
 
