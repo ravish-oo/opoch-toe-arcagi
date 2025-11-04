@@ -191,3 +191,102 @@ If **no** family (H1…H9) fits: `agg_size_fit` returns `None` (WO-04a will surf
 * H9 composes two of {H1,H2,H6,H7} under 5 guards; the combined attempts are manageable and fully deterministic.
 
 If any of the 139 tasks are still `SIZE_UNDETERMINED` after H8/H9, the receipts will make it clear what law they need, and we can consider one more bounded family (e.g., motif-based via witness) **add-only** without breaking anything.
+
+## H8 performance fix
+H8 naïvely explodes.
+
+## Complexity at a glance
+
+* **H9 (guarded piecewise):**
+  Guards = 5. Clause families per side = {H1(64), H2(289), H6(16), H7(16)} = **385** options per side.
+  Total attempts ≈ (5 \times 385^2 = 741{,}125). Each attempt is just integer size checks across trainings. This is tractable in pure Python.
+
+* **H8 (feature-linear, naïve product):**
+  Feature basis (fixed): (\phi = [1,H,W,\text{sum_nonzero},\text{ncc_total},\text{count}*{c1},\text{count}*{c2}]).
+  Rows side choices:
+
+  * (k_R=0): 33 (intercept)
+  * (k_R=1): (6) features × (33) intercepts × (6) coeffs = **1,188**
+  * (k_R=2): (\binom{6}{2}=15) × (33) × (6^2=36) = **17,820**
+    Rows total = **19,041**. Columns total is the same.
+    **Naïve H8** = (19{,}041^2 \approx 3.63\times 10^8) combined attempts → too slow in Python.
+
+So your reviewer “stuck” is expected if H8 is coded as four nested loops making the full rows×cols Cartesian product.
+
+---
+
+## What to do (exact, spec-safe, still pure CS)
+
+You don’t need heuristics; you just exploit the math: **R’ and C’ are independent in H8.** Compute them independently, then combine only the sets that actually fit trainings. This keeps correctness identical and receipts deterministic, but avoids (3.6\times10^8) loops.
+
+### Frozen refactor for H8 (two-phase, exact)
+
+1. **Enumerate and filter row candidates only**
+
+   * Loop the row side exactly as specified (the same order and bounds), but **check only (R’=\alpha_0+\sum \alpha f) against (R_i)** for each training.
+   * Keep a deterministic list `Rows_OK` of **row param tuples** that fit **all trainings** (and a counter for how many were rejected).
+
+2. **Enumerate and filter column candidates only**
+
+   * Same idea for columns; produce `Cols_OK`.
+
+3. **Combine only OK×OK**
+
+   * Now iterate the **Cartesian product** `Rows_OK × Cols_OK` (in frozen lex order of row params then column params).
+   * For each pair, emit a single **H8 attempt** entry with `fit_all=true` (by construction), compute test tie-area and consider it a candidate.
+   * (You don’t need to recheck trainings—each side already matched.)
+
+**Correctness:** identical to naïve; you just avoid evaluating combinations that can’t possibly fit because the row or column side already fails.
+**Determinism:** you must freeze the row/col enumeration order exactly as in WO-14 (we already specified it), and the join order (rows-outer, cols-inner). Receipts stay stable.
+
+### Receipts (add-only, to keep audits strong)
+
+Keep `size_fit.attempts` listing **the H8 pairs you actually evaluated** (i.e., the OK×OK), and append a small **summary** so we can audit coverage:
+
+```json
+"attempts_summary": {
+  "H8": {
+    "rows_total": 19041,
+    "rows_ok": <|Rows_OK|>,
+    "cols_total": 19041,
+    "cols_ok": <|Cols_OK|>,
+    "pairs_evaluated": <|Rows_OK| * <|Cols_OK|>
+  }
+}
+```
+
+This proves you enumerated the full row/col spaces independently (frozen order) and only skipped Cartesian pairs that cannot fit. No breaking schema; purely additive.
+
+> If you prefer a single counter: also log `H8_rows_rejected = rows_total - rows_ok` and `H8_cols_rejected = cols_total - cols_ok`.
+
+---
+
+## Quick implementation checklist (why reviewers get stuck)
+
+* If you see four nested loops for H8 rows×cols in one block, that’s the perf bug. Split into two blocks as above.
+* Keep **frozen orders**: rows enumeration order exactly as we wrote ( (k_R) → (S_R) → (a_0) → coeffs), then columns with the same pattern; the join is rows-outer, cols-inner.
+* Use **integers only**. No pruning beyond the exact row/col fit filter.
+* For H9, the current ~741k attempts are fine—no change needed.
+
+---
+
+## Triage: is “stuck” an implementation bug?
+
+* If H8 is still one 4-nested block (rows×cols), it’s a perf bug: refactor as above.
+* If it’s already decoupled, check that:
+
+  * the **row filter** uses all trainings for (R) only,
+  * **column filter** uses (C) only,
+  * the **join order** is frozen and deterministic,
+  * receipts include the **summary** counts (optional but recommended).
+
+---
+
+## Reviewer’s 2-line live check (real ARC)
+
+* Confirm `size_fit.attempts_summary.H8` shows `rows_total=19041, cols_total=19041` and reasonable `rows_ok, cols_ok` (usually tiny), and that `attempts` includes only the OK×OK pairs (much smaller).
+* Confirm H9 attempts are present (≈ 741k worst-case across guards/clauses) and the runner completes within seconds.
+
+---
+
+The core issue is simply the naïve (19{,}041^2) loop.

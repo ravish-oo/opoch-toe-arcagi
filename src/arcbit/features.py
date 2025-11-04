@@ -493,35 +493,39 @@ def agg_size_fit(
                                 "feat2_coeff": coeff2
                             }
 
-    # Enumerate row models with early stopping
+    # ========================================================================
+    # H8 Performance Fix: 3-Phase Enumeration (exploits R'/C' independence)
+    # ========================================================================
+    # Phase 1: Filter row models independently (check R only)
+    # Phase 2: Filter col models independently (check C only)
+    # Phase 3: Combine Rows_OK × Cols_OK (guaranteed fit_all)
+
+    # Phase 1: Enumerate and filter row models
+    rows_ok = []
+    rows_total = 0
     for row_params in generate_models():
-        # Check if row model fits
+        rows_total += 1
         row_params_with_axis = {**row_params, "axis": "rows"}
         fit_rows, ok_train_ids_rows = _check_fit_H8(train_pairs, row_params_with_axis, c1, c2)
 
-        if not fit_rows:
-            # Row model doesn't fit, skip col enumeration
-            # Still log attempt for receipts
-            params = {"row_model": row_params, "col_model": None}
-            attempts.append({
-                "family": "H8",
-                "params": params,
-                "ok_train_ids": [],
-                "fit_all": False
-            })
-            continue
+        if fit_rows:
+            rows_ok.append((row_params, ok_train_ids_rows))
 
-        # Row model fits, enumerate col models
-        for col_params in generate_models():
-            # Check if col model fits
-            col_params_with_axis = {**col_params, "axis": "cols"}
-            fit_cols, ok_train_ids_cols = _check_fit_H8(train_pairs, col_params_with_axis, c1, c2)
+    # Phase 2: Enumerate and filter col models
+    cols_ok = []
+    cols_total = 0
+    for col_params in generate_models():
+        cols_total += 1
+        col_params_with_axis = {**col_params, "axis": "cols"}
+        fit_cols, ok_train_ids_cols = _check_fit_H8(train_pairs, col_params_with_axis, c1, c2)
 
-            # Both must fit all trainings
-            fit_all = fit_cols  # Row already checked
-            ok_train_ids = ok_train_ids_rows if fit_all else []
+        if fit_cols:
+            cols_ok.append((col_params, ok_train_ids_cols))
 
-            # Combine params for receipts
+    # Phase 3: Combine Rows_OK × Cols_OK (frozen lex order: rows outer, cols inner)
+    for row_params, ok_train_ids_rows in rows_ok:
+        for col_params, ok_train_ids_cols in cols_ok:
+            # Both sides fit, so combined model fits all
             params = {
                 "row_model": row_params,
                 "col_model": col_params
@@ -530,35 +534,36 @@ def agg_size_fit(
             attempts.append({
                 "family": "H8",
                 "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
+                "ok_train_ids": ok_train_ids_rows,  # Same for both sides (all trainings)
+                "fit_all": True
             })
 
-            if fit_all:
-                # Predict test output size
-                H_star = test_features["H"]
-                W_star = test_features["W"]
-                sum_nonzero_star = test_features["sum_nonzero"]
-                ncc_total_star = test_features["ncc_total"]
-                count_c1_star = test_features["counts"].get(c1, 0)
-                count_c2_star = test_features["counts"].get(c2, 0)
+            # Predict test output size
+            H_star = test_features["H"]
+            W_star = test_features["W"]
+            sum_nonzero_star = test_features["sum_nonzero"]
+            ncc_total_star = test_features["ncc_total"]
+            count_c1_star = test_features["counts"].get(c1, 0)
+            count_c2_star = test_features["counts"].get(c2, 0)
 
-                features_star = [1, H_star, W_star, sum_nonzero_star, ncc_total_star, count_c1_star, count_c2_star]
+            features_star = [1, H_star, W_star, sum_nonzero_star, ncc_total_star, count_c1_star, count_c2_star]
 
-                # R prediction (handle 0-feature, 1-feature, 2-feature models)
-                R_test = row_params["intercept"]
-                if row_params["feat1_idx"] is not None:
-                    R_test += row_params["feat1_coeff"] * features_star[row_params["feat1_idx"]]
-                if row_params["feat2_idx"] is not None:
-                    R_test += row_params["feat2_coeff"] * features_star[row_params["feat2_idx"]]
+            # R prediction
+            R_test = row_params["intercept"]
+            if row_params["feat1_idx"] is not None:
+                R_test += row_params["feat1_coeff"] * features_star[row_params["feat1_idx"]]
+            if row_params["feat2_idx"] is not None:
+                R_test += row_params["feat2_coeff"] * features_star[row_params["feat2_idx"]]
 
-                # C prediction (handle 0-feature, 1-feature, 2-feature models)
-                C_test = col_params["intercept"]
-                if col_params["feat1_idx"] is not None:
-                    C_test += col_params["feat1_coeff"] * features_star[col_params["feat1_idx"]]
-                if col_params["feat2_idx"] is not None:
-                    C_test += col_params["feat2_coeff"] * features_star[col_params["feat2_idx"]]
+            # C prediction
+            C_test = col_params["intercept"]
+            if col_params["feat1_idx"] is not None:
+                C_test += col_params["feat1_coeff"] * features_star[col_params["feat1_idx"]]
+            if col_params["feat2_idx"] is not None:
+                C_test += col_params["feat2_coeff"] * features_star[col_params["feat2_idx"]]
 
+            # Validate positive sizes
+            if R_test > 0 and C_test > 0:
                 test_area = R_test * C_test
                 candidates.append(("H8", params, test_area))
 
@@ -635,6 +640,17 @@ def agg_size_fit(
 
     receipts.put("attempts", attempts)
     receipts.put("total_candidates_checked", len(attempts))
+
+    # Add H8 performance summary (audit coverage)
+    receipts.put("attempts_summary", {
+        "H8": {
+            "rows_total": rows_total,
+            "rows_ok": len(rows_ok),
+            "cols_total": cols_total,
+            "cols_ok": len(cols_ok),
+            "pairs_evaluated": len(rows_ok) * len(cols_ok)
+        }
+    })
 
     # C) Apply tie rule to select winner
     if not candidates:
