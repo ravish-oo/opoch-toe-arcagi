@@ -319,7 +319,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-## WO-10 — Forbids + AC-3 (4-neighbor)
+## WO-10 — Forbids + AC-3 (4-neighbor) ✅ COMPLETED
 
 **Goal:** Learn forbid matrix M(c,d) (directed if needed) and run frozen AC-3.
 
