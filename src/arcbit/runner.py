@@ -3,17 +3,19 @@ ARC-AGI Deterministic Runner
 
 Milestone-based runner that evolves incrementally:
   - M0: Bedrock validation (color universe, pack/unpack, canonicalize) ✅
-  - M1 (current): Working canvas selection via WO-14 + WO-04a
+  - M1' (current): Working canvas selection via WO-14 + WO-04a with H1-H9
   - M2+: Emitters, LFP, selection (to be added)
 
-Current M1 Implementation:
+Current M1' Implementation:
   - M0 sections unchanged (color universe, pack/unpack, frames)
-  - NEW: Working canvas (R_out, C_out) via frozen H1-H7 size predictor
-  - Uses WO-14 features + WO-04a choose_working_canvas
+  - NEW: Working canvas (R_out, C_out) via frozen H1-H9 size predictor
+  - Uses WO-14 features (with H8/H9) + WO-04a choose_working_canvas
+  - H8: Feature-linear models with bounded coefficients
+  - H9: Guarded piecewise models over {H1,H2,H6,H7} clauses
   - Output: Y_placeholder = X* (identity), plus receipts bundle
   - No painting/normalization yet (validation + size selection only)
 
-Future sections will be appended below M1 sections as milestones progress.
+Future sections will be appended below M1' sections as milestones progress.
 """
 
 from typing import Tuple, Dict, List
@@ -27,14 +29,18 @@ from .kernel import (
     apply_pose_anchor
 )
 from .features import agg_features
-from .canvas import choose_working_canvas, SizeUndetermined
+from .canvas import choose_working_canvas, SizeUndetermined, parse_families, FULL_FAMILY_SET
 
 
-def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
+def solve(
+    task_json: dict,
+    families: Tuple[str, ...] = FULL_FAMILY_SET,
+    skip_h8h9_if_area1: bool = False
+) -> Tuple[List[List[int]], Dict]:
     """
     ARC-AGI deterministic solver (milestone-based).
 
-    Current M1 Implementation:
+    Current M1' Implementation:
       Returns test input unchanged as Y_placeholder.
       Steps:
         M0 sections (unchanged):
@@ -43,9 +49,9 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
           3) Canonicalize frames (Π_in for all X_i and X*, Π_out for all Y_i)
           4) apply_pose_anchor round-trip proof on X* planes
 
-        M1 sections (new):
+        M1' sections (new):
           5) Extract WO-14 features from training inputs
-          6) Choose working canvas (R_out, C_out) via WO-04a (H1-H7)
+          6) Choose working canvas (R_out, C_out) via WO-04a (H1-H9)
           7) Seal receipts with working_canvas section (no timestamps)
 
     Future Milestones (to be added):
@@ -55,10 +61,15 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
         task_json: ARC task dict with keys:
             - "train": list of {"input": grid, "output": grid}
             - "test": list of {"input": grid}
+        families: Tuple of family IDs to evaluate (Sub-WO-RUN-FAM).
+            Default: FULL_FAMILY_SET (all H1-H9).
+            Examples: ("H1", "H2", ..., "H7") for fast pass, ("H1", ..., "H9") for full.
+        skip_h8h9_if_area1: If True, skip H8/H9 when area=1 found (Sub-WO-RUN-FAM).
+            Default: False (production conservative).
 
     Returns:
         Tuple of (Y, receipts_bundle):
-          - Y: Predicted output grid (M1: returns X* unchanged)
+          - Y: Predicted output grid (M1': returns X* unchanged)
           - receipts_bundle: dict with sectioned receipts including working_canvas
 
     Invariants (all milestones):
@@ -70,7 +81,7 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
 
     Raises:
         ValueError: On shape mismatch, bit overflow, bad pose ID
-        SizeUndetermined: If no H1-H7 hypothesis fits all trainings (M1)
+        SizeUndetermined: If no H1-H9 hypothesis fits all trainings (M1')
         RuntimeError: On determinism check failure (double-run mismatch)
     """
     # Extract grids
@@ -378,12 +389,17 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
     xstar_shape = (H_star, W_star)
 
     # Call choose_working_canvas (may raise SizeUndetermined)
+    # M1': Now includes H8/H9 via xstar_grid parameter (Sub-WO-04a-H8H9)
+    # Sub-WO-RUN-FAM: Pass families and skip_h8h9_if_area1 for family gating
     R_out, C_out, canvas_receipts = choose_working_canvas(
         train_pairs_for_canvas,
         frames_in,
         frames_out,
         xstar_shape,
-        colors_order
+        colors_order,
+        xstar_grid=X_star,  # Enables H8/H9 feature extraction and test_area computation
+        families=families,  # Family allow-list (Sub-WO-RUN-FAM)
+        skip_h8h9_if_area1=skip_h8h9_if_area1  # Skip H8/H9 if area=1 found (Sub-WO-RUN-FAM)
     )
 
     # Add working_canvas section to receipts
@@ -402,12 +418,18 @@ def solve(task_json: dict) -> Tuple[List[List[int]], Dict]:
     return (Y_placeholder, receipts_bundle)
 
 
-def solve_with_determinism_check(task_json: dict) -> Tuple[List[List[int]], Dict]:
+def solve_with_determinism_check(
+    task_json: dict,
+    families: Tuple[str, ...] = FULL_FAMILY_SET,
+    skip_h8h9_if_area1: bool = False
+) -> Tuple[List[List[int]], Dict]:
     """
     Run solve() twice and verify determinism (all section hashes match).
 
     Args:
         task_json: ARC task dict.
+        families: Tuple of family IDs to evaluate (Sub-WO-RUN-FAM).
+        skip_h8h9_if_area1: If True, skip H8/H9 when area=1 found (Sub-WO-RUN-FAM).
 
     Returns:
         Tuple of (Y, receipts_bundle) with determinism flags added.
@@ -420,10 +442,10 @@ def solve_with_determinism_check(task_json: dict) -> Tuple[List[List[int]], Dict
         Applicable to all milestones.
     """
     # Run 1
-    Y1, receipts1 = solve(task_json)
+    Y1, receipts1 = solve(task_json, families=families, skip_h8h9_if_area1=skip_h8h9_if_area1)
 
     # Run 2
-    Y2, receipts2 = solve(task_json)
+    Y2, receipts2 = solve(task_json, families=families, skip_h8h9_if_area1=skip_h8h9_if_area1)
 
     # Compare Y (must be identical)
     if Y1 != Y2:
@@ -455,3 +477,136 @@ def solve_with_determinism_check(task_json: dict) -> Tuple[List[List[int]], Dict
     receipts_final["determinism.sections_checked"] = len(all_keys)
 
     return (Y1, receipts_final)
+
+
+# ============================================================================
+# CLI Entry Point (Sub-WO-RUN-FAM)
+# ============================================================================
+
+if __name__ == "__main__":
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description="ARC-AGI Deterministic Runner (M1' with H1-H9 + family gating)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Fast pass with H1-7 only
+  python -m src.arcbit.runner task.json --families=H1-7
+
+  # Full evaluation with all H1-H9
+  python -m src.arcbit.runner task.json --families=H1-9
+
+  # Skip H8/H9 if area=1 found (dev speed optimization)
+  python -m src.arcbit.runner task.json --skip-h8h9-if-area1
+
+  # CSV notation
+  python -m src.arcbit.runner task.json --families=H1,H2,H5
+
+Dev workflow (two-pass):
+  1. Fast pass: --families=H1-7
+  2. Rerun SIZE_UNDETERMINED with: --families=H1-9
+        """
+    )
+
+    parser.add_argument(
+        "task_file",
+        type=str,
+        help="Path to ARC task JSON file"
+    )
+
+    parser.add_argument(
+        "--families",
+        type=str,
+        default=None,
+        help="Family allow-list: 'H1-7' (range) or 'H1,H2,H5' (CSV). Default: all H1-H9."
+    )
+
+    parser.add_argument(
+        "--skip-h8h9-if-area1",
+        action="store_true",
+        help="Skip H8/H9 if area=1 found in H1-H7 (dev speed optimization). Default: False."
+    )
+
+    parser.add_argument(
+        "--determinism-check",
+        action="store_true",
+        help="Run double-solve determinism check. Default: False (single solve)."
+    )
+
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file for receipts JSON. Default: print to stdout."
+    )
+
+    args = parser.parse_args()
+
+    # Load task JSON
+    try:
+        with open(args.task_file, 'r') as f:
+            task_json = json.load(f)
+    except FileNotFoundError:
+        print(f"Error: Task file not found: {args.task_file}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in task file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse families parameter
+    if args.families:
+        try:
+            families_tuple = parse_families(args.families)
+        except ValueError as e:
+            print(f"Error: Invalid families parameter: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        families_tuple = FULL_FAMILY_SET  # Default: all H1-H9
+
+    # Run solver
+    try:
+        if args.determinism_check:
+            Y, receipts = solve_with_determinism_check(
+                task_json,
+                families=families_tuple,
+                skip_h8h9_if_area1=args.skip_h8h9_if_area1
+            )
+        else:
+            Y, receipts = solve(
+                task_json,
+                families=families_tuple,
+                skip_h8h9_if_area1=args.skip_h8h9_if_area1
+            )
+    except SizeUndetermined as e:
+        # SIZE_UNDETERMINED: print receipts and exit with code 2
+        print("SIZE_UNDETERMINED: No hypothesis fits all trainings", file=sys.stderr)
+        if args.output:
+            with open(args.output, 'w') as f:
+                json.dump(e.receipts, f, indent=2)
+            print(f"Receipts written to: {args.output}", file=sys.stderr)
+        else:
+            print("\nReceipts:", file=sys.stderr)
+            print(json.dumps(e.receipts, indent=2), file=sys.stderr)
+        sys.exit(2)
+    except (ValueError, RuntimeError) as e:
+        # Other errors: print error and exit with code 1
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Success: print results
+    result = {
+        "prediction": Y,
+        "receipts": receipts
+    }
+
+    if args.output:
+        with open(args.output, 'w') as f:
+            json.dump(result, f, indent=2)
+        print(f"Results written to: {args.output}")
+    else:
+        print(json.dumps(result, indent=2))
+
+    sys.exit(0)

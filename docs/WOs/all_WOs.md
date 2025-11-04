@@ -186,8 +186,8 @@ Section: `working_canvas`
 
 * On a task with varying training sizes, `choose_working_canvas` returns a single ((R_{out},C_{out})) with a full `attempts` trail; no LCM fields anywhere.
 
-## Sub-WO-04a-H8H9 — Plug H8 & H9 into `choose_working_canvas`
-docs/WOs/WO-04a-H8H9.md
+## Sub-WO-04a-H8H9 — Plug H8 & H9 into `choose_working_canvas` ✅ COMPLETED
+refer to docs/WOs/WO-04a-H8H9.md
 ---
 
 ### Milestone M1 (after WO-04 + WO-02): “Canvas online”
@@ -445,7 +445,7 @@ docs/WOs/WO-04a-H8H9.md
 
 * Affine, period multiple, CC-linear; tie-breaking.
 
-# Sub-WO-14b — Add H8 (Feature-Linear) and H9 (Guarded Piecewise) 
+# Sub-WO-14b — Add H8 (Feature-Linear) and H9 (Guarded Piecewise) ✅ COMPLETED
 refer to docs/WOs/WO-14b.md
 ---
 

@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.arcbit.runner import solve, solve_with_determinism_check
-from src.arcbit.canvas import SizeUndetermined
+from src.arcbit.canvas import SizeUndetermined, parse_families, FULL_FAMILY_SET
 
 
 # Load real ARC data
@@ -199,7 +199,7 @@ def analyze_size_undetermined(task_id, exception):
     return "GENUINE", f"All H1-H7 tried with full bounds, counterexample: {counterexample}"
 
 
-def test_task(task_id, task_json, use_determinism_check=False):
+def test_task(task_id, task_json, use_determinism_check=False, families=FULL_FAMILY_SET, skip_h8h9_if_area1=False):
     """
     Test M1 runner on a single task.
 
@@ -210,9 +210,9 @@ def test_task(task_id, task_json, use_determinism_check=False):
     """
     try:
         if use_determinism_check:
-            Y, receipts = solve_with_determinism_check(task_json)
+            Y, receipts = solve_with_determinism_check(task_json, families=families, skip_h8h9_if_area1=skip_h8h9_if_area1)
         else:
-            Y, receipts = solve(task_json)
+            Y, receipts = solve(task_json, families=families, skip_h8h9_if_area1=skip_h8h9_if_area1)
 
         # Verify Y = X* (placeholder)
         X_star = task_json["test"][0]["input"]
@@ -263,16 +263,19 @@ def test_task(task_id, task_json, use_determinism_check=False):
         }
 
 
-def run_sweep(num_tasks=50, use_determinism_check=True):
+def run_sweep(num_tasks=50, use_determinism_check=True, families=FULL_FAMILY_SET, skip_h8h9_if_area1=False):
     """
     Run M1 sweep on num_tasks.
 
     Args:
         num_tasks: Number of tasks to test (50 or 1000)
         use_determinism_check: Whether to run double-run determinism check
+        families: Tuple of family IDs to evaluate (e.g., ("H1", ..., "H7"))
+        skip_h8h9_if_area1: Skip H8/H9 if area=1 found
     """
     print("=" * 70)
-    print(f"M1 CANVAS ONLINE - SWEEP TEST ({num_tasks} tasks)")
+    families_str = f"H1-{families[-1][1]}" if len(families) > 1 and families == tuple(f"H{i}" for i in range(1, int(families[-1][1])+1)) else str(families)
+    print(f"M1 CANVAS ONLINE - SWEEP TEST ({num_tasks} tasks, families={families_str})")
     print("=" * 70)
     print()
 
@@ -290,7 +293,7 @@ def run_sweep(num_tasks=50, use_determinism_check=True):
     for i, task_id in enumerate(task_ids):
         task_json = all_tasks[task_id]
 
-        status, details = test_task(task_id, task_json, use_determinism_check)
+        status, details = test_task(task_id, task_json, use_determinism_check, families, skip_h8h9_if_area1)
         results[status].append((task_id, details))
 
         if status == "PASS":
@@ -369,8 +372,24 @@ def run_sweep(num_tasks=50, use_determinism_check=True):
 
 
 if __name__ == "__main__":
-    # Start with 50 tasks
-    num_tasks = int(sys.argv[1]) if len(sys.argv) > 1 else 50
+    import argparse
 
-    exit_code = run_sweep(num_tasks, use_determinism_check=True)
+    parser = argparse.ArgumentParser(description="M1' Sweep Test with Family Gating")
+    parser.add_argument("num_tasks", type=int, nargs="?", default=50, help="Number of tasks (default: 50)")
+    parser.add_argument("--families", type=str, default=None, help="Family allow-list: 'H1-7' or 'H1,H2,H5'")
+    parser.add_argument("--skip-h8h9-if-area1", action="store_true", help="Skip H8/H9 if area=1 found")
+    parser.add_argument("--no-determinism-check", action="store_true", help="Skip determinism check (faster)")
+
+    args = parser.parse_args()
+
+    # Parse families
+    families = parse_families(args.families) if args.families else FULL_FAMILY_SET
+    use_determinism_check = not args.no_determinism_check
+
+    exit_code = run_sweep(
+        num_tasks=args.num_tasks,
+        use_determinism_check=use_determinism_check,
+        families=families,
+        skip_h8h9_if_area1=args.skip_h8h9_if_area1
+    )
     sys.exit(exit_code)

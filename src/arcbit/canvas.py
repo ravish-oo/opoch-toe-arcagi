@@ -17,6 +17,47 @@ import json
 
 
 # ============================================================================
+# Family Gating (Sub-WO-RUN-FAM)
+# ============================================================================
+
+# Frozen global family order
+FAMILY_ORDER = ("H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9")
+FULL_FAMILY_SET = FAMILY_ORDER  # Production default
+
+
+def parse_families(families_input: str) -> Tuple[str, ...]:
+    """
+    Parse families flag to normalized tuple in frozen global order.
+
+    Args:
+        families_input: "H1-7" (range) or "H1,H2,H5" (CSV)
+
+    Returns:
+        Tuple of family IDs in frozen order, e.g., ("H1", "H2", "H3", ...)
+
+    Spec: Sub-WO-RUN-FAM
+    """
+    if "-" in families_input:
+        # Range: H1-7 → ["H1", "H2", ..., "H7"]
+        parts = families_input.replace("H", "").split("-")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid range format: {families_input}")
+        start, end = int(parts[0]), int(parts[1])
+        requested = {f"H{i}" for i in range(start, end + 1)}
+    else:
+        # CSV: H1,H2,H5 → ["H1", "H2", "H5"]
+        requested = set(families_input.split(","))
+
+    # Normalize to frozen global order
+    normalized = tuple(f for f in FAMILY_ORDER if f in requested)
+
+    if not normalized:
+        raise ValueError(f"No valid families in input: {families_input}")
+
+    return normalized
+
+
+# ============================================================================
 # Exception Classes
 # ============================================================================
 
@@ -51,7 +92,9 @@ def choose_working_canvas(
     frames_out: List[Dict],
     xstar_shape: Tuple[int, int],
     colors_order: List[int],
-    xstar_grid: Optional[List[List[int]]] = None
+    xstar_grid: Optional[List[List[int]]] = None,
+    families: Tuple[str, ...] = FULL_FAMILY_SET,
+    skip_h8h9_if_area1: bool = False
 ) -> Tuple[int, int, Dict]:
     """
     Choose single working canvas size (R_out, C_out) via frozen H1-H9 evaluation.
@@ -63,12 +106,14 @@ def choose_working_canvas(
         xstar_shape: (H*, W*) test input dimensions.
         colors_order: Global color universe (sorted, includes 0).
         xstar_grid: Optional test input grid for H8/H9 feature extraction (Sub-WO-04a-H8H9).
+        families: Family allow-list in frozen order (Sub-WO-RUN-FAM). Default: all H1-H9.
+        skip_h8h9_if_area1: If True and area=1 found, skip H8/H9 (Sub-WO-RUN-FAM). Default: False.
 
     Returns:
         Tuple of (R_out, C_out, receipts_dict).
 
     Raises:
-        SizeUndetermined: If no hypothesis fits all trainings.
+        SizeUndetermined: If no hypothesis fits all trainings (partial or full mode).
 
     Spec:
         WO-04a + Sub-WO-04a-H8H9: Trainings-only size prediction, fail-closed.
@@ -126,158 +171,203 @@ def choose_working_canvas(
     H_star, W_star = xstar_shape
     receipts.put("test_input_shape", {"H": H_star, "W": W_star})
 
-    # C) Enumerate hypotheses H1-H7 in frozen order
+    # C) Enumerate hypotheses H1-H9 in frozen order with family gating
     attempts = []
     candidates = []  # (family, params, test_area)
+    families_eval = []  # Track which families were evaluated
+    families_skipped = []  # Track families skipped due to area bound
+    best_area = None  # Track smallest area found (for skip_h8h9_if_area1)
 
     # H1: R = a·H, C = c·W | a,c ∈ {1..8}
-    for a in range(1, 9):
-        for c in range(1, 9):
-            params = {"a": a, "c": c}
-            fit_all, ok_train_ids = _check_fit_H1(sizes_in, sizes_out, params)
+    if "H1" in families:
+        families_eval.append("H1")
+        for a in range(1, 9):
+            for c in range(1, 9):
+                params = {"a": a, "c": c}
+                fit_all, ok_train_ids = _check_fit_H1(sizes_in, sizes_out, params)
 
-            attempts.append({
-                "family": "H1",
-                "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
-            })
+                attempts.append({
+                    "family": "H1",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids,
+                    "fit_all": fit_all
+                })
 
-            if fit_all:
-                R_test = a * H_star
-                C_test = c * W_star
-                test_area = R_test * C_test
-                candidates.append(("H1", params, test_area))
+                if fit_all:
+                    R_test = a * H_star
+                    C_test = c * W_star
+                    test_area = R_test * C_test
+                    candidates.append(("H1", params, test_area))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
 
     # H2: R = H + b, C = W + d | b,d ∈ {0..16}
-    for b in range(0, 17):
-        for d in range(0, 17):
-            params = {"b": b, "d": d}
-            fit_all, ok_train_ids = _check_fit_H2(sizes_in, sizes_out, params)
+    if "H2" in families:
+        families_eval.append("H2")
+        for b in range(0, 17):
+            for d in range(0, 17):
+                params = {"b": b, "d": d}
+                fit_all, ok_train_ids = _check_fit_H2(sizes_in, sizes_out, params)
 
-            attempts.append({
-                "family": "H2",
-                "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
-            })
+                attempts.append({
+                    "family": "H2",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids,
+                    "fit_all": fit_all
+                })
 
-            if fit_all:
-                R_test = H_star + b
-                C_test = W_star + d
-                test_area = R_test * C_test
-                candidates.append(("H2", params, test_area))
+                if fit_all:
+                    R_test = H_star + b
+                    C_test = W_star + d
+                    test_area = R_test * C_test
+                    candidates.append(("H2", params, test_area))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
 
     # H3: R = a·H + b, C = c·W + d | a,c ∈ {1..8}, b,d ∈ {0..16}
     # Enumeration order: a → c → b → d (frozen)
-    for a in range(1, 9):
-        for c in range(1, 9):
-            for b in range(0, 17):
-                for d in range(0, 17):
-                    params = {"a": a, "b": b, "c": c, "d": d}
-                    fit_all, ok_train_ids = _check_fit_H3(sizes_in, sizes_out, params)
+    if "H3" in families:
+        families_eval.append("H3")
+        for a in range(1, 9):
+            for c in range(1, 9):
+                for b in range(0, 17):
+                    for d in range(0, 17):
+                        params = {"a": a, "b": b, "c": c, "d": d}
+                        fit_all, ok_train_ids = _check_fit_H3(sizes_in, sizes_out, params)
 
-                    attempts.append({
-                        "family": "H3",
-                        "params": params,
-                        "ok_train_ids": ok_train_ids,
-                        "fit_all": fit_all
-                    })
+                        attempts.append({
+                            "family": "H3",
+                            "params": params,
+                            "ok_train_ids": ok_train_ids,
+                            "fit_all": fit_all
+                        })
 
-                    if fit_all:
-                        R_test = a * H_star + b
-                        C_test = c * W_star + d
-                        test_area = R_test * C_test
-                        candidates.append(("H3", params, test_area))
+                        if fit_all:
+                            R_test = a * H_star + b
+                            C_test = c * W_star + d
+                            test_area = R_test * C_test
+                            candidates.append(("H3", params, test_area))
+                            # Track best area
+                            if best_area is None or test_area < best_area:
+                                best_area = test_area
 
     # H4: R = R₀, C = C₀ | R₀,C₀ ∈ {1..30}
-    for R0 in range(1, 31):
-        for C0 in range(1, 31):
-            params = {"R0": R0, "C0": C0}
-            fit_all, ok_train_ids = _check_fit_H4(sizes_in, sizes_out, params)
+    if "H4" in families:
+        families_eval.append("H4")
+        for R0 in range(1, 31):
+            for C0 in range(1, 31):
+                params = {"R0": R0, "C0": C0}
+                fit_all, ok_train_ids = _check_fit_H4(sizes_in, sizes_out, params)
 
-            attempts.append({
-                "family": "H4",
-                "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
-            })
+                attempts.append({
+                    "family": "H4",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids,
+                    "fit_all": fit_all
+                })
 
-            if fit_all:
-                R_test = R0
-                C_test = C0
-                test_area = R_test * C_test
-                candidates.append(("H4", params, test_area))
+                if fit_all:
+                    R_test = R0
+                    C_test = C0
+                    test_area = R_test * C_test
+                    candidates.append(("H4", params, test_area))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
 
     # H5: R = kr·lcm_r, C = kc·lcm_c | kr,kc ∈ {1..8}
     # Uses OUTPUT periods with identity rule (H_in/W_in when periods are None)
     # For test prediction: uses the COMMON output periods from trainings
-    for kr in range(1, 9):
-        for kc in range(1, 9):
-            params = {"kr": kr, "kc": kc}
-            fit_all, ok_train_ids, common_lcm_r, common_lcm_c = _check_fit_H5(
-                features_out, sizes_out, sizes_in, params
-            )
+    if "H5" in families:
+        families_eval.append("H5")
+        for kr in range(1, 9):
+            for kc in range(1, 9):
+                params = {"kr": kr, "kc": kc}
+                fit_all, ok_train_ids, common_lcm_r, common_lcm_c = _check_fit_H5(
+                    features_out, sizes_out, sizes_in, params
+                )
 
-            attempts.append({
-                "family": "H5",
-                "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
-            })
+                attempts.append({
+                    "family": "H5",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids,
+                    "fit_all": fit_all
+                })
 
-            if fit_all:
-                # Test prediction uses common periods from training outputs
-                # Identity rule: if common period is None, use test input size
-                R_test = (kr * common_lcm_r) if common_lcm_r is not None else H_star
-                C_test = (kc * common_lcm_c) if common_lcm_c is not None else W_star
-                test_area = R_test * C_test
-                candidates.append(("H5", params, test_area, common_lcm_r, common_lcm_c))
+                if fit_all:
+                    # Test prediction uses common periods from training outputs
+                    # Identity rule: if common period is None, use test input size
+                    R_test = (kr * common_lcm_r) if common_lcm_r is not None else H_star
+                    C_test = (kc * common_lcm_c) if common_lcm_c is not None else W_star
+                    test_area = R_test * C_test
+                    candidates.append(("H5", params, test_area, common_lcm_r, common_lcm_c))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
 
     # H6: R = ⌊H/kr⌋, C = ⌊W/kc⌋ | kr,kc ∈ {2..5}
-    for kr in range(2, 6):
-        for kc in range(2, 6):
-            params = {"kr": kr, "kc": kc}
-            fit_all, ok_train_ids = _check_fit_H6(sizes_in, sizes_out, params)
+    if "H6" in families:
+        families_eval.append("H6")
+        for kr in range(2, 6):
+            for kc in range(2, 6):
+                params = {"kr": kr, "kc": kc}
+                fit_all, ok_train_ids = _check_fit_H6(sizes_in, sizes_out, params)
 
-            attempts.append({
-                "family": "H6",
-                "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
-            })
+                attempts.append({
+                    "family": "H6",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids,
+                    "fit_all": fit_all
+                })
 
-            if fit_all:
-                R_test = H_star // kr
-                C_test = W_star // kc
-                test_area = R_test * C_test
-                candidates.append(("H6", params, test_area))
+                if fit_all:
+                    R_test = H_star // kr
+                    C_test = W_star // kc
+                    test_area = R_test * C_test
+                    candidates.append(("H6", params, test_area))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
 
     # H7: R = ⌈H/kr⌉, C = ⌈W/kc⌉ | kr,kc ∈ {2..5}
-    for kr in range(2, 6):
-        for kc in range(2, 6):
-            params = {"kr": kr, "kc": kc}
-            fit_all, ok_train_ids = _check_fit_H7(sizes_in, sizes_out, params)
+    if "H7" in families:
+        families_eval.append("H7")
+        for kr in range(2, 6):
+            for kc in range(2, 6):
+                params = {"kr": kr, "kc": kc}
+                fit_all, ok_train_ids = _check_fit_H7(sizes_in, sizes_out, params)
 
-            attempts.append({
-                "family": "H7",
-                "params": params,
-                "ok_train_ids": ok_train_ids,
-                "fit_all": fit_all
-            })
+                attempts.append({
+                    "family": "H7",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids,
+                    "fit_all": fit_all
+                })
 
-            if fit_all:
-                R_test = _ceil_div(H_star, kr)
-                C_test = _ceil_div(W_star, kc)
-                test_area = R_test * C_test
-                candidates.append(("H7", params, test_area))
+                if fit_all:
+                    R_test = _ceil_div(H_star, kr)
+                    C_test = _ceil_div(W_star, kc)
+                    test_area = R_test * C_test
+                    candidates.append(("H7", params, test_area))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
 
     # ========================================================================
-    # Sub-WO-04a-H8H9: Compute top-2 colors for H8 features
+    # Sub-WO-04a-H8H9: Compute top-2 colors for H8 features (always compute for receipts)
     # ========================================================================
 
     c1, c2 = _get_top2_colors(features_in)
     receipts.put("top2_colors", {"c1": c1, "c2": c2})
+
+    # ========================================================================
+    # Sub-WO-RUN-FAM: Check skip_h8h9_if_area1 bound before H8/H9
+    # ========================================================================
+    # If skip_h8h9_if_area1=True and best_area=1, skip H8/H9 enumeration
+
+    skip_h8h9 = skip_h8h9_if_area1 and best_area == 1
 
     # ========================================================================
     # H8: Feature-Linear (Sub-WO-04a-H8H9) with early stopping
@@ -288,120 +378,131 @@ def choose_working_canvas(
     # Enumeration: rows → cols, 0-feature → 1-feature → 2-feature
     # Early stopping: only enumerate col models if row model fits
 
-    coeffs = [-3, -2, -1, 1, 2, 3]
-
-    # Helper function to generate model parameter generator
-    def generate_models():
-        # 0-feature models first (constant-only)
-        for intercept in range(0, 33):  # 0..32
-            yield {
-                "intercept": intercept,
-                "feat1_idx": None,
-                "feat1_coeff": None,
-                "feat2_idx": None,
-                "feat2_coeff": None
-            }
-
-        # 1-feature models second
-        for intercept in range(0, 33):  # 0..32
-            for feat_idx in range(1, 7):  # 1..6 (skip φ[0]=1 constant)
-                for coeff in coeffs:
-                    yield {
-                        "intercept": intercept,
-                        "feat1_idx": feat_idx,
-                        "feat1_coeff": coeff,
-                        "feat2_idx": None,
-                        "feat2_coeff": None
-                    }
-
-        # 2-feature models third
-        for intercept in range(0, 33):  # 0..32
-            for feat1_idx in range(1, 7):  # 1..6
-                for feat2_idx in range(feat1_idx + 1, 7):  # feat2 > feat1
-                    for coeff1 in coeffs:
-                        for coeff2 in coeffs:
-                            yield {
-                                "intercept": intercept,
-                                "feat1_idx": feat1_idx,
-                                "feat1_coeff": coeff1,
-                                "feat2_idx": feat2_idx,
-                                "feat2_coeff": coeff2
-                            }
-
-    # ========================================================================
-    # H8 Performance Fix: 3-Phase Enumeration (exploits R'/C' independence)
-    # ========================================================================
-    # Phase 1: Filter row models independently (check R only)
-    # Phase 2: Filter col models independently (check C only)
-    # Phase 3: Combine Rows_OK × Cols_OK (guaranteed fit_all)
-
-    # Phase 1: Enumerate and filter row models
+    # Initialize H8 tracking variables (for attempts_summary)
     rows_ok = []
-    rows_total = 0
-    for row_params in generate_models():
-        rows_total += 1
-        row_params_with_axis = {**row_params, "axis": "rows"}
-        fit_rows, ok_train_ids_rows = _check_fit_H8(features_in, sizes_out, row_params_with_axis, c1, c2)
-
-        if fit_rows:
-            rows_ok.append((row_params, ok_train_ids_rows))
-
-    # Phase 2: Enumerate and filter col models
     cols_ok = []
+    rows_total = 0
     cols_total = 0
-    for col_params in generate_models():
-        cols_total += 1
-        col_params_with_axis = {**col_params, "axis": "cols"}
-        fit_cols, ok_train_ids_cols = _check_fit_H8(features_in, sizes_out, col_params_with_axis, c1, c2)
 
-        if fit_cols:
-            cols_ok.append((col_params, ok_train_ids_cols))
+    if "H8" in families and not skip_h8h9:
+        families_eval.append("H8")
 
-    # Phase 3: Combine Rows_OK × Cols_OK (frozen lex order: rows outer, cols inner)
-    for row_params, ok_train_ids_rows in rows_ok:
-        for col_params, ok_train_ids_cols in cols_ok:
-            # Both sides fit, so combined model fits all
-            params = {
-                "row_model": row_params,
-                "col_model": col_params
-            }
+        coeffs = [-3, -2, -1, 1, 2, 3]
 
-            attempts.append({
-                "family": "H8",
-                "params": params,
-                "ok_train_ids": ok_train_ids_rows,  # Same for both sides (all trainings)
-                "fit_all": True
-            })
+        # Helper function to generate model parameter generator
+        def generate_models():
+            # 0-feature models first (constant-only)
+            for intercept in range(0, 33):  # 0..32
+                yield {
+                    "intercept": intercept,
+                    "feat1_idx": None,
+                    "feat1_coeff": None,
+                    "feat2_idx": None,
+                    "feat2_coeff": None
+                }
 
-            # Predict test output size (only if xstar_grid provided)
-            if xstar_grid is None:
-                continue  # Skip H8 candidates if test grid not provided
+            # 1-feature models second
+            for intercept in range(0, 33):  # 0..32
+                for feat_idx in range(1, 7):  # 1..6 (skip φ[0]=1 constant)
+                    for coeff in coeffs:
+                        yield {
+                            "intercept": intercept,
+                            "feat1_idx": feat_idx,
+                            "feat1_coeff": coeff,
+                            "feat2_idx": None,
+                            "feat2_coeff": None
+                        }
 
-            fv_star = _extract_size_features(xstar_grid, H_star, W_star, colors_order)
+            # 2-feature models third
+            for intercept in range(0, 33):  # 0..32
+                for feat1_idx in range(1, 7):  # 1..6
+                    for feat2_idx in range(feat1_idx + 1, 7):  # feat2 > feat1
+                        for coeff1 in coeffs:
+                            for coeff2 in coeffs:
+                                yield {
+                                    "intercept": intercept,
+                                    "feat1_idx": feat1_idx,
+                                    "feat1_coeff": coeff1,
+                                    "feat2_idx": feat2_idx,
+                                    "feat2_coeff": coeff2
+                                }
 
-            count_c1_star = fv_star["counts"].get(c1, 0)
-            count_c2_star = fv_star["counts"].get(c2, 0)
+        # ========================================================================
+        # H8 Performance Fix: 3-Phase Enumeration (exploits R'/C' independence)
+        # ========================================================================
+        # Phase 1: Filter row models independently (check R only)
+        # Phase 2: Filter col models independently (check C only)
+        # Phase 3: Combine Rows_OK × Cols_OK (guaranteed fit_all)
 
-            features_star = [1, H_star, W_star, fv_star["sum_nonzero"], fv_star["ncc_total"], count_c1_star, count_c2_star]
+        # Phase 1: Enumerate and filter row models
+        for row_params in generate_models():
+            rows_total += 1
+            row_params_with_axis = {**row_params, "axis": "rows"}
+            fit_rows, ok_train_ids_rows = _check_fit_H8(features_in, sizes_out, row_params_with_axis, c1, c2)
 
-            # R prediction
-            R_test = row_params["intercept"]
-            if row_params["feat1_idx"] is not None:
-                R_test += row_params["feat1_coeff"] * features_star[row_params["feat1_idx"]]
-            if row_params["feat2_idx"] is not None:
-                R_test += row_params["feat2_coeff"] * features_star[row_params["feat2_idx"]]
+            if fit_rows:
+                rows_ok.append((row_params, ok_train_ids_rows))
 
-            # C prediction
-            C_test = col_params["intercept"]
-            if col_params["feat1_idx"] is not None:
-                C_test += col_params["feat1_coeff"] * features_star[col_params["feat1_idx"]]
-            if col_params["feat2_idx"] is not None:
-                C_test += col_params["feat2_coeff"] * features_star[col_params["feat2_idx"]]
+        # Phase 2: Enumerate and filter col models
+        for col_params in generate_models():
+            cols_total += 1
+            col_params_with_axis = {**col_params, "axis": "cols"}
+            fit_cols, ok_train_ids_cols = _check_fit_H8(features_in, sizes_out, col_params_with_axis, c1, c2)
 
-            # Validate: sizes must be positive
-            if R_test > 0 and C_test > 0:
-                test_area = R_test * C_test
-                candidates.append(("H8", params, test_area))
+            if fit_cols:
+                cols_ok.append((col_params, ok_train_ids_cols))
+
+        # Phase 3: Combine Rows_OK × Cols_OK (frozen lex order: rows outer, cols inner)
+        for row_params, ok_train_ids_rows in rows_ok:
+            for col_params, ok_train_ids_cols in cols_ok:
+                # Both sides fit, so combined model fits all
+                params = {
+                    "row_model": row_params,
+                    "col_model": col_params
+                }
+
+                attempts.append({
+                    "family": "H8",
+                    "params": params,
+                    "ok_train_ids": ok_train_ids_rows,  # Same for both sides (all trainings)
+                    "fit_all": True
+                })
+
+                # Predict test output size (only if xstar_grid provided)
+                if xstar_grid is None:
+                    continue  # Skip H8 candidates if test grid not provided
+
+                fv_star = _extract_size_features(xstar_grid, H_star, W_star, colors_order)
+
+                count_c1_star = fv_star["counts"].get(c1, 0)
+                count_c2_star = fv_star["counts"].get(c2, 0)
+
+                features_star = [1, H_star, W_star, fv_star["sum_nonzero"], fv_star["ncc_total"], count_c1_star, count_c2_star]
+
+                # R prediction
+                R_test = row_params["intercept"]
+                if row_params["feat1_idx"] is not None:
+                    R_test += row_params["feat1_coeff"] * features_star[row_params["feat1_idx"]]
+                if row_params["feat2_idx"] is not None:
+                    R_test += row_params["feat2_coeff"] * features_star[row_params["feat2_idx"]]
+
+                # C prediction
+                C_test = col_params["intercept"]
+                if col_params["feat1_idx"] is not None:
+                    C_test += col_params["feat1_coeff"] * features_star[col_params["feat1_idx"]]
+                if col_params["feat2_idx"] is not None:
+                    C_test += col_params["feat2_coeff"] * features_star[col_params["feat2_idx"]]
+
+                # Validate: sizes must be positive
+                if R_test > 0 and C_test > 0:
+                    test_area = R_test * C_test
+                    candidates.append(("H8", params, test_area))
+                    # Track best area
+                    if best_area is None or test_area < best_area:
+                        best_area = test_area
+    elif skip_h8h9:
+        # H8 skipped due to area bound
+        families_skipped.append("H8")
 
     # ========================================================================
     # H9: Guarded Piecewise (Sub-WO-04a-H8H9)
@@ -410,76 +511,98 @@ def choose_working_canvas(
     # Guards: {has_row_period, has_col_period, ncc_total>1, sum_nonzero>⌊H·W/2⌋, H>W}
     # Clauses: {H1, H2, H6, H7}
 
-    guards = ["has_row_period", "has_col_period", "ncc_gt_1", "sum_gt_half", "h_gt_w"]
-    clause_families = ["H1", "H2", "H6", "H7"]
+    if "H9" in families and not skip_h8h9:
+        families_eval.append("H9")
 
-    # Build clause parameter spaces
-    clause_param_spaces = {
-        "H1": [{"a": a, "c": c} for a in range(1, 9) for c in range(1, 9)],
-        "H2": [{"b": b, "d": d} for b in range(0, 17) for d in range(0, 17)],
-        "H6": [{"kr": kr, "kc": kc} for kr in range(2, 6) for kc in range(2, 6)],
-        "H7": [{"kr": kr, "kc": kc} for kr in range(2, 6) for kc in range(2, 6)]
-    }
+        guards = ["has_row_period", "has_col_period", "ncc_gt_1", "sum_gt_half", "h_gt_w"]
+        clause_families = ["H1", "H2", "H6", "H7"]
 
-    # Enumerate guards → true_clause → false_clause
-    for guard in guards:
-        for true_family in clause_families:
-            for true_params in clause_param_spaces[true_family]:
-                for false_family in clause_families:
-                    for false_params in clause_param_spaces[false_family]:
-                        params = {
-                            "guard": guard,
-                            "true_family": true_family,
-                            "true_params": true_params,
-                            "false_family": false_family,
-                            "false_params": false_params
-                        }
+        # Build clause parameter spaces
+        clause_param_spaces = {
+            "H1": [{"a": a, "c": c} for a in range(1, 9) for c in range(1, 9)],
+            "H2": [{"b": b, "d": d} for b in range(0, 17) for d in range(0, 17)],
+            "H6": [{"kr": kr, "kc": kc} for kr in range(2, 6) for kc in range(2, 6)],
+            "H7": [{"kr": kr, "kc": kc} for kr in range(2, 6) for kc in range(2, 6)]
+        }
 
-                        fit_all, ok_train_ids = _check_fit_H9(features_in, sizes_out, params)
+        # Enumerate guards → true_clause → false_clause
+        for guard in guards:
+            for true_family in clause_families:
+                for true_params in clause_param_spaces[true_family]:
+                    for false_family in clause_families:
+                        for false_params in clause_param_spaces[false_family]:
+                            params = {
+                                "guard": guard,
+                                "true_family": true_family,
+                                "true_params": true_params,
+                                "false_family": false_family,
+                                "false_params": false_params
+                            }
 
-                        attempts.append({
-                            "family": "H9",
-                            "params": params,
-                            "ok_train_ids": ok_train_ids,
-                            "fit_all": fit_all
-                        })
+                            fit_all, ok_train_ids = _check_fit_H9(features_in, sizes_out, params)
 
-                        if fit_all:
-                            # Predict test output size
-                            # Extract test features (only if xstar_grid provided)
-                            if xstar_grid is None:
-                                continue  # Skip H9 candidates if test grid not provided
+                            attempts.append({
+                                "family": "H9",
+                                "params": params,
+                                "ok_train_ids": ok_train_ids,
+                                "fit_all": fit_all
+                            })
 
-                            fv_star = _extract_size_features(xstar_grid, H_star, W_star, colors_order)
+                            if fit_all:
+                                # Predict test output size
+                                # Extract test features (only if xstar_grid provided)
+                                if xstar_grid is None:
+                                    continue  # Skip H9 candidates if test grid not provided
 
-                            # Evaluate guard on test input
-                            if guard == "has_row_period":
-                                guard_result = (fv_star["periods"]["lcm_r"] is not None)
-                            elif guard == "has_col_period":
-                                guard_result = (fv_star["periods"]["lcm_c"] is not None)
-                            elif guard == "ncc_gt_1":
-                                guard_result = (fv_star["ncc_total"] > 1)
-                            elif guard == "sum_gt_half":
-                                half_area = (H_star * W_star) // 2
-                                guard_result = (fv_star["sum_nonzero"] > half_area)
-                            elif guard == "h_gt_w":
-                                guard_result = (H_star > W_star)
+                                fv_star = _extract_size_features(xstar_grid, H_star, W_star, colors_order)
 
-                            # Select clause
-                            if guard_result:
-                                family = true_family
-                                clause_params = true_params
-                            else:
-                                family = false_family
-                                clause_params = false_params
+                                # Evaluate guard on test input
+                                if guard == "has_row_period":
+                                    guard_result = (fv_star["periods"]["lcm_r"] is not None)
+                                elif guard == "has_col_period":
+                                    guard_result = (fv_star["periods"]["lcm_c"] is not None)
+                                elif guard == "ncc_gt_1":
+                                    guard_result = (fv_star["ncc_total"] > 1)
+                                elif guard == "sum_gt_half":
+                                    half_area = (H_star * W_star) // 2
+                                    guard_result = (fv_star["sum_nonzero"] > half_area)
+                                elif guard == "h_gt_w":
+                                    guard_result = (H_star > W_star)
 
-                            # Predict
-                            R_test, C_test = _predict_clause(fv_star, family, clause_params)
+                                # Select clause
+                                if guard_result:
+                                    family = true_family
+                                    clause_params = true_params
+                                else:
+                                    family = false_family
+                                    clause_params = false_params
 
-                            # Validate: sizes must be positive (skip models that predict non-positive sizes)
-                            if R_test > 0 and C_test > 0:
-                                test_area = R_test * C_test
-                                candidates.append(("H9", params, test_area))
+                                # Predict
+                                R_test, C_test = _predict_clause(fv_star, family, clause_params)
+
+                                # Validate: sizes must be positive (skip models that predict non-positive sizes)
+                                if R_test > 0 and C_test > 0:
+                                    test_area = R_test * C_test
+                                    candidates.append(("H9", params, test_area))
+                                    # Track best area
+                                    if best_area is None or test_area < best_area:
+                                        best_area = test_area
+    elif skip_h8h9 and "H9" in families:
+        # H9 skipped due to area bound
+        families_skipped.append("H9")
+
+    # Add family gating receipts (Sub-WO-RUN-FAM)
+    receipts.put("families_requested", list(families))
+    receipts.put("families_eval", families_eval)
+
+    # family_eval_mode: "full" if all requested families were evaluated, "partial" otherwise
+    family_eval_mode = "full" if set(families_eval) == set(families) else "partial"
+    receipts.put("family_eval_mode", family_eval_mode)
+
+    # Optional: families_skipped_due_to_area_bound and best_area_bound (if any were skipped)
+    if families_skipped:
+        receipts.put("families_skipped_due_to_area_bound", families_skipped)
+        receipts.put("best_area_bound", best_area)
 
     receipts.put("attempts", attempts)
     receipts.put("total_candidates_checked", len(attempts))
