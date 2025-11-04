@@ -779,9 +779,18 @@ def solve(
                         anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
                         frames_all[f"Pi_out_{i}"] = (pose_id, anchor_tuple)
 
+        # BUGFIX: Compute included_train_ids from transport results BEFORE witness emit
+        # Witness should only use trainings that successfully normalized (not silent)
+        included_train_ids_from_transport = []
+        for i, S_out_i in enumerate(S_out_list):
+            has_scope = any(row != 0 for row in S_out_i)
+            if has_scope:
+                included_train_ids_from_transport.append(i)
+
         # Emit global witness (WO-07)
         A_wit, S_wit, witness_emit_receipts = emit_witness(
-            X_star, witness_results_all, frames_all, colors_order, R_out, C_out
+            X_star, witness_results_all, frames_all, colors_order, R_out, C_out,
+            included_train_ids=included_train_ids_from_transport  # Pass transport-included IDs
         )
 
         # Add witness_emit receipts to final bundle
@@ -851,6 +860,46 @@ def solve(
 
     # Initialize D0 to all-ones (top of lattice)
     D0 = {(r, c): ((1 << len(colors_order)) - 1) for r in range(R_out) for c in range(C_out)}
+
+    # ========================================================================
+    # DIAGNOSTIC: Check for preLFP T1 vs T2 conflicts (author's suggestion)
+    # ========================================================================
+    # Count pixels where both scopes=1 but admits are disjoint (empty intersection)
+    preLFP_conflicts = 0
+    preLFP_overlap_pixels = 0
+    conflict_details = []
+
+    if with_witness:
+        for r in range(R_out):
+            for c in range(C_out):
+                bit = 1 << c
+                # Check if both witness and unanimity have scope at this pixel
+                wit_scope = (S_wit[r] & bit) != 0
+                uni_scope = (S_uni[r] & bit) != 0
+
+                if wit_scope and uni_scope:
+                    preLFP_overlap_pixels += 1
+                    # Check if admits intersect (find common colors)
+                    wit_colors = [color for color in colors_order if (A_wit[color][r] & bit) != 0]
+                    uni_colors = [color for color in colors_order if (A_uni[color][r] & bit) != 0]
+                    intersection = set(wit_colors) & set(uni_colors)
+
+                    if not intersection:
+                        preLFP_conflicts += 1
+                        # Log first few conflicts for debugging
+                        if len(conflict_details) < 10:
+                            conflict_details.append({
+                                "pixel": [r, c],
+                                "witness_admits": wit_colors,
+                                "unanimity_admits": uni_colors
+                            })
+
+    # Log diagnostic in receipts (add-only, for debugging)
+    receipts.put("preLFP_diagnostic", {
+        "overlap_pixels": preLFP_overlap_pixels,
+        "conflicts": preLFP_conflicts,
+        "conflict_details_sample": conflict_details[:10]  # First 10 conflicts
+    })
 
     # Run LFP propagation
     forbids_tuple = (E_graph, M_matrix) if E_graph and M_matrix else None

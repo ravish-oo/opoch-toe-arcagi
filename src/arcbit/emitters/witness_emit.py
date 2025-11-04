@@ -8,7 +8,7 @@ witness emitter (A_wit, S_wit) via scope-gated intersection.
 Pure functional, deterministic, receipts-first.
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import json
 from src.arcbit.kernel.ops import (
     pose_plane,
@@ -26,6 +26,7 @@ def emit_witness(
     colors_order: List[int],
     R_out: int,
     C_out: int,
+    included_train_ids: Optional[List[int]] = None,
 ) -> Tuple[Dict[int, List[int]], List[int], Dict]:
     """
     Conjugate witness pieces and forward-emit test input to working canvas.
@@ -36,6 +37,7 @@ def emit_witness(
         frames: Dict with Pi_in_star, Pi_out_star, and per-training frames
         colors_order: Ascending color list (includes 0 and all task colors)
         R_out, C_out: Working canvas shape from WO-04a
+        included_train_ids: Optional list of training IDs to use (from transport)
 
     Returns:
         A_wit: Dict color -> plane (scope-gated intersection)
@@ -65,6 +67,14 @@ def emit_witness(
     active_trainings = []
 
     for i, witness_result in enumerate(witness_results_all_trainings):
+        # BUGFIX: Skip trainings not included in transport (failed normalization)
+        if included_train_ids is not None and i not in included_train_ids:
+            # Training was silent in transport, skip it in witness too
+            per_training_emitters.append(({c: [0] * R_out for c in colors_order}, [0] * R_out))
+            per_training_scope_bits.append(0)
+            per_training_piece_counts.append(0)
+            continue
+
         A_i, S_i = _build_per_training_emitter(
             witness_result,
             i,
@@ -308,6 +318,13 @@ def _build_per_training_emitter(
 
     sigma_i = witness_result.get("sigma", {})
 
+    # DEBUG: Print sigma mapping
+    import os
+    if os.environ.get("DEBUG_WITNESS"):
+        print(f"\n=== WITNESS EMIT - Training {training_idx} ===")
+        print(f"  σ mapping: {sigma_i}")
+        print(f"  Processing {len(pieces)} pieces")
+
     # Process each piece
     for piece in pieces:
         _process_piece(
@@ -325,6 +342,7 @@ def _build_per_training_emitter(
             colors_order,
             R_out,
             C_out,
+            training_idx,  # Pass training index for debug
         )
 
     # Normalize: remove admit-all pixels from scope
@@ -348,6 +366,7 @@ def _process_piece(
     colors_order: List[int],
     R_out: int,
     C_out: int,
+    training_idx: int = -1,  # For debug only
 ):
     """
     Process one piece: conjugate, forward-map, update A_i and S_i.
@@ -373,17 +392,29 @@ def _process_piece(
     # Construct φ_i = (R_i, t_i) in (Pi_in_i -> Pi_out_i) coordinates
     phi_i = (pid, (dy, dx))
 
-    # Conjugate: φ_i* = Pi_out_* ∘ Pi_out_i⁻¹ ∘ φ_i ∘ Pi_in_i ∘ Pi_in_*⁻¹
-    Pi_in_star_inv = _inverse_frame(Pi_in_star)
+    # BUGFIX: Conjugate WITHOUT Pi_in_*⁻¹ because input is pre-canonicalized
+    # Correct formula: φ_i* = Pi_out_* ∘ Pi_out_i⁻¹ ∘ φ_i ∘ Pi_in_i
+    # The Pi_in_*⁻¹ term is already applied by apply_pose_anchor at line 261
     Pi_out_i_inv = _inverse_frame(Pi_out_i)
 
-    # Build 5-frame composition from right to left
-    temp1 = _compose_frames(Pi_in_i, Pi_in_star_inv)
-    temp2 = _compose_frames(phi_i, temp1)
-    temp3 = _compose_frames(Pi_out_i_inv, temp2)
-    phi_i_star = _compose_frames(Pi_out_star, temp3)
+    # Build 4-frame composition from right to left (NOT 5-frame!)
+    temp1 = _compose_frames(phi_i, Pi_in_i)
+    temp2 = _compose_frames(Pi_out_i_inv, temp1)
+    phi_i_star = _compose_frames(Pi_out_star, temp2)
 
     pid_star, (dy_star, dx_star) = phi_i_star
+
+    # DEBUG: Diagnostic for conflict pixels as per author's request
+    import os
+    if os.environ.get("DEBUG_CONJUGATION"):
+        print(f"\n=== CONJUGATION DEBUG - Training {training_idx}, Piece ===")
+        print(f"  Original φ_i: pose={pid}, t=({dy},{dx})")
+        print(f"  Conjugated φ_i*: pose={pid_star}, t*=({dy_star},{dx_star})")
+        print(f"  Frames:")
+        print(f"    Pi_in_i={Pi_in_i}")
+        print(f"    Pi_in_star={Pi_in_star}")
+        print(f"    Pi_out_i={Pi_out_i}")
+        print(f"    Pi_out_star={Pi_out_star}")
 
     # Compute target bbox in working canvas
     B_tgt_rows = _compute_target_bbox_mask(
@@ -397,8 +428,17 @@ def _process_piece(
         # Get test input plane for color c
         plane_c = planes_in_star.get(c, [0] * H_in_star)
 
+        # DEBUG: Show test input at first few pixels
+        if os.environ.get("DEBUG_CONJUGATION") and c in [0, 2]:
+            import sys
+            print(f"    Color {c}: plane_c[0] bits = {bin(plane_c[0]) if plane_c else 'empty'}", file=sys.stderr)
+
         # Pose the plane (get posed dimensions)
         P, H_posed, W_posed = pose_plane(plane_c, pid_star, H_in_star, W_in_star)
+
+        # DEBUG: Show posed plane
+        if os.environ.get("DEBUG_CONJUGATION") and c in [0, 2]:
+            print(f"    After pose {pid_star}: P[0] = {bin(P[0]) if P else 'empty'}", file=sys.stderr)
 
         # Embed posed plane into target canvas with offset
         # (Explicit embedding avoids dimension mismatch with shift_plane)

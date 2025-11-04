@@ -22,3 +22,9 @@ here is the WO. do refer to @docs/repo_structure.md to knw the folder structure.
   4. no room for hit and trials
 
 once u confirm above, we can start coding!
+
+# how to debug
+u may hv tried few things but see if u want to try something from here. also when u say u hypothesize, why do i need to to do guess and hope. i mean best part of programming is that u can print output at each step and study  it when out and find exactly when it breaks.. that's what debuggers formalized but old school way us to print the outputs and see. u r trained on code that probably didnt hv these prints for debug but that's how its done. 
+
+so u must not "hypothesize" and fix. hypothesize to investigate, print outputs and settle hypothesis rather than hit and hope. that just wont work. so get back to 0th principle of coding. print and see and fix. simple as that.. 
+hope this helps 

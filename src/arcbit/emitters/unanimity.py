@@ -65,7 +65,14 @@ def emit_unity(
         if has_scope:
             included_train_ids.append(i)
 
+    # DEBUG: Print included trainings
+    import os
+    if os.environ.get("DEBUG_UNANIMITY"):
+        print(f"\n=== UNANIMITY EMIT ===")
+        print(f"  Included trainings: {included_train_ids}")
+
     # Process each pixel
+    debug_count = 0
     for r in range(R_out):
         for c_bit in range(C_out):
             bit = 1 << c_bit
@@ -91,6 +98,11 @@ def emit_unity(
                 for color in colors_order:
                     if A_out_list[i][color][r] & bit:
                         U_p.add(color)
+
+            # DEBUG: Print first few pixels
+            if os.environ.get("DEBUG_UNANIMITY") and debug_count < 10:
+                print(f"  Pixel ({r},{c_bit}): trainings={I_p}, colors={sorted(U_p)}")
+                debug_count += 1
 
             # Check for unanimity
             if len(U_p) == 1:
