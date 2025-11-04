@@ -141,8 +141,7 @@ def test_m3_simple_identity():
     # Check receipts structure
     assert "witness_learn" in receipts["payload"], "Should have witness_learn receipts"
     assert "selection" in receipts["payload"], "Should have selection receipts"
-    assert "unanimity_evaluated" in receipts["payload"], "Should have unanimity_evaluated field"
-    assert receipts["payload"]["unanimity_evaluated"] == False, "Unanimity should be OFF"
+    assert "unanimity" in receipts["payload"], "Should have unanimity receipts (M2 always runs)"
 
     # Check selection receipts
     selection = receipts["payload"]["selection"]

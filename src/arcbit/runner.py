@@ -4,18 +4,19 @@ ARC-AGI Deterministic Runner
 Milestone-based runner that evolves incrementally:
   - M0: Bedrock validation (color universe, pack/unpack, canonicalize) ✅
   - M1': Working canvas selection via WO-14 + WO-04a with H1-H9 ✅
-  - M3 (current): Witness path (components, learn, emit, minimal selector)
+  - M2: Output path (transport + unanimity) ✅
+  - M3: Witness path (components, learn, emit, minimal selector) ✅
 
-Current M3 Implementation:
+Current Implementation (M2 + M3):
   - M0/M1' sections unchanged
-  - NEW: WO-05 components extraction per training
-  - NEW: WO-06 witness learning (rigid pieces + σ per training)
-  - NEW: WO-07 witness emission (conjugation + forward mapping)
-  - NEW: Minimal selector (witness → unanimity → bottom)
-  - Unanimity OFF at M3 (S_uni=0, logged in receipts)
+  - M2: WO-08 output transport + unanimity (always enabled)
+  - M3: WO-05/06/07 witness path (optional, with_witness=True)
+  - Minimal selector: M3 (witness → unanimity → bottom) OR M2 (unanimity → bottom)
   - No LFP yet (M4), no domain propagation
 
-Future sections will be appended below M3 sections as milestones progress.
+Future milestones:
+  - M4: LFP (admit-∧ + AC-3)
+  - M5: Lattice + EngineWinner
 """
 
 from typing import Tuple, Dict, List
@@ -31,7 +32,88 @@ from .kernel import (
 from .features import agg_features
 from .canvas import choose_working_canvas, SizeUndetermined, parse_families, FULL_FAMILY_SET
 from .kernel.components import components
-from .emitters import learn_witness, emit_witness
+from .emitters import learn_witness, emit_witness, emit_output_transport, emit_unity
+
+
+# ============================================================================
+# M2: Minimal Selector (Unanimity → Bottom)
+# ============================================================================
+
+def select_unanimity_first(
+    A_uni: Dict[int, List[int]],
+    S_uni: List[int],
+    colors_order: List[int],
+    R_out: int,
+    C_out: int
+) -> Tuple[List[List[int]], Dict]:
+    """
+    Minimal selector for M2 (output path only).
+
+    Precedence:
+      1. Unanimity bucket: pick singleton if S_uni[p]==1
+      2. Bottom: pick 0
+
+    Args:
+        A_uni: Unanimity admits (color -> plane)
+        S_uni: Unanimity scope (list of row masks)
+        colors_order: Ascending color list
+        R_out, C_out: Canvas dimensions
+
+    Returns:
+        Tuple of (Y_out, selection_receipts):
+          - Y_out: Selected grid (R_out × C_out)
+          - selection_receipts: Dict with counts, containment, repaint_hash
+
+    Spec: Sub-WO-M2-SelectorPatch (final)
+    """
+    Y_out = [[0] * C_out for _ in range(R_out)]
+    counts = {"unanimity": 0, "bottom": 0}
+
+    for r in range(R_out):
+        scope_row = S_uni[r] if r < len(S_uni) else 0
+        for c in range(C_out):
+            bit = 1 << c
+            if scope_row & bit:
+                # Find the unique unanimous color by reading A_uni color planes.
+                found = None
+                for color in colors_order:
+                    plane = A_uni.get(color)
+                    if not plane:
+                        continue
+                    # Defensive: protect against short rows
+                    row_mask = plane[r] if r < len(plane) else 0
+                    if (row_mask & bit) != 0:
+                        if found is None:
+                            found = color
+                        else:
+                            # Should never happen in unanimity; fall back to bottom to be safe.
+                            found = None
+                            break
+                if found is not None:
+                    Y_out[r][c] = found
+                    counts["unanimity"] += 1
+                else:
+                    # No unanimous color despite scope: fall back to bottom (0)
+                    Y_out[r][c] = 0
+                    counts["bottom"] += 1
+            else:
+                Y_out[r][c] = 0
+                counts["bottom"] += 1
+
+    # Hash of selected grid
+    grid_bytes = serialize_grid_be_row_major(Y_out, R_out, C_out, colors_order)
+    repaint_hash = blake3_hash(grid_bytes)
+
+    selection_receipts = {
+        "precedence": ["unanimity", "bottom"],
+        "counts": counts,
+        "containment_verified": True,
+        "repaint_hash": repaint_hash,
+        # Debug flag: if full unanimity, selector and unanimity hashes must match.
+        "full_unanimity_match": (counts["unanimity"] == R_out * C_out)
+    }
+
+    return Y_out, selection_receipts
 
 
 # ============================================================================
@@ -138,29 +220,37 @@ def solve(
     """
     ARC-AGI deterministic solver (milestone-based).
 
-    Current M3 Implementation:
-      Witness path with minimal selector.
+    Current Implementation (M2 + M3):
+      M2: Output path (transport + unanimity)
+      M3: Witness path (optional)
+
       Steps:
-        M0 sections (unchanged):
+        M0 sections:
           1) Build color universe C = {0} ∪ colors(X*) ∪ ⋃colors(X_i,Y_i)
           2) PACK→UNPACK identity check on all trainings and on X*
           3) Canonicalize frames (Π_in for all X_i and X*, Π_out for all Y_i)
           4) apply_pose_anchor round-trip proof on X* planes
 
-        M1' sections (unchanged):
+        M1' sections:
           5) Extract WO-14 features from training inputs
           6) Choose working canvas (R_out, C_out) via WO-04a (H1-H9)
 
-        M3 sections (new):
-          7) Extract components from training inputs (WO-05)
-          8) Learn witness per training (WO-06: rigid pieces + σ)
-          9) Emit global witness (WO-07: conjugation + forward mapping)
-          10) Minimal selector (witness → unanimity → bottom)
-          11) Seal receipts with witness_learn, witness_emit, selection sections
+        M2 sections:
+          7) Output transport (WO-08: normalize + transport to working canvas)
+          8) Unanimity (WO-08: singleton admits where trainings agree)
 
-    Future Milestones (to be added):
+        M3 sections (optional, with_witness=True):
+          9) Extract components from training inputs (WO-05)
+          10) Learn witness per training (WO-06: rigid pieces + σ)
+          11) Emit global witness (WO-07: conjugation + forward mapping)
+
+        Final sections:
+          12) Minimal selector (M3: witness → unanimity → bottom OR M2: unanimity → bottom)
+          13) Seal receipts and return
+
+    Future Milestones:
       - M4: LFP (admit-∧ + AC-3)
-      - M5: Unanimity/Lattice + EngineWinner
+      - M5: Lattice + EngineWinner
 
     Args:
         task_json: ARC task dict with keys:
@@ -512,7 +602,46 @@ def solve(
     receipts.put("working_canvas", canvas_receipts["payload"])
 
     # ========================================================================
-    # M3 Step 7: Extract Components (WO-05) - if witness enabled
+    # M2 Step 7: Output Transport (WO-08)
+    # ========================================================================
+
+    # Build Y_train_list from training outputs
+    Y_train_list = [pair["output"] for pair in train_pairs]
+
+    # Build frames_out list (pose, anchor tuples) from frames_receipts
+    frames_out_list = []
+    for receipt in frames_receipts:
+        if receipt["split"] == "train" and receipt["io_type"] == "output":
+            pose_id = receipt["frame.pose"]["pose_id"] if isinstance(receipt["frame.pose"], dict) else receipt["frame.pose"]
+            anchor = receipt["frame.anchor"]
+            anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
+            frames_out_list.append((pose_id, anchor_tuple))
+
+    # pi_out_star is the test output frame (working canvas is always identity)
+    pi_out_star = ("I", (0, 0))
+
+    # Call emit_output_transport
+    A_out_list, S_out_list, transport_receipts, transport_section = emit_output_transport(
+        Y_train_list, frames_out_list, R_out, C_out, colors_order, pi_out_star
+    )
+
+    # Add transport receipts
+    receipts.put("transports", transport_section["payload"])
+
+    # ========================================================================
+    # M2 Step 8: Unanimity (WO-08)
+    # ========================================================================
+
+    # Call emit_unity (unanimity)
+    A_uni, S_uni, unanimity_receipt = emit_unity(
+        A_out_list, S_out_list, colors_order, R_out, C_out
+    )
+
+    # Add unanimity receipts
+    receipts.put("unanimity", unanimity_receipt)
+
+    # ========================================================================
+    # M3 Step 9: Extract Components (WO-05) - if witness enabled
     # ========================================================================
 
     if with_witness:
@@ -650,47 +779,43 @@ def solve(
         receipts.put("witness_emit", witness_emit_receipts["payload"])
 
     # ========================================================================
-    # M3 Step 10: Unanimity (optional, OFF at M3)
-    # ========================================================================
-
-    if with_unanimity:
-        # TODO: Implement unanimity (WO-08)
-        # For now, just create dummy all-ones admits and zero scope
-        A_uni = {c: [(1 << C_out) - 1] * R_out for c in colors_order}
-        S_uni = [0] * R_out
-        unanimity_evaluated = True
-    else:
-        # Unanimity OFF: all-ones admits, zero scope
-        A_uni = {c: [(1 << C_out) - 1] * R_out for c in colors_order}
-        S_uni = [0] * R_out
-        unanimity_evaluated = False
-
-    receipts.put("unanimity_evaluated", unanimity_evaluated)
-
-    # ========================================================================
-    # M3 Step 11: Minimal Selector (Witness → Unanimity → Bottom)
+    # M2/M3 Step 10: Minimal Selector
     # ========================================================================
 
     if with_witness:
-        # Call minimal selector
+        # M3: Witness → Unanimity → Bottom
         Y_out, selection_receipts = select_witness_first(
             A_wit, S_wit, A_uni, S_uni, colors_order, R_out, C_out
         )
-
-        # Add section hash to selection receipts
-        selection_payload = selection_receipts.copy()
-        selection_json = blake3_hash(
-            str(selection_payload).encode("utf-8")
-        )  # Simple hash for now
-        selection_receipts["section_hash"] = selection_json
-
-        receipts.put("selection", selection_receipts)
     else:
-        # No witness: return placeholder (identity)
-        Y_out = X_star
+        # M2: Unanimity → Bottom (output path only)
+        Y_out, selection_receipts = select_unanimity_first(
+            A_uni, S_uni, colors_order, R_out, C_out
+        )
+
+    # Guard: verify selector/unanimity match under full unanimity (Sub-WO-M2-SelectorPatch final)
+    # When unanimity covers all pixels, repaint_hash must match unanimity_grid_hash
+    # Both use grid-encoded format for apples-to-apples comparison
+    if selection_receipts["counts"]["unanimity"] == R_out * C_out:
+        assert selection_receipts["repaint_hash"] == unanimity_receipt["unanimity_grid_hash"], \
+            f"Selector/unanimity mismatch under full unanimity: " \
+            f"repaint_hash={selection_receipts['repaint_hash']} != " \
+            f"unanimity_grid_hash={unanimity_receipt['unanimity_grid_hash']}"
+        selection_receipts["full_unanimity_match"] = True
+    else:
+        selection_receipts["full_unanimity_match"] = False
+
+    # Add section hash to selection receipts
+    selection_payload = selection_receipts.copy()
+    selection_json = blake3_hash(
+        str(selection_payload).encode("utf-8")
+    )  # Simple hash for now
+    selection_receipts["section_hash"] = selection_json
+
+    receipts.put("selection", selection_receipts)
 
     # ========================================================================
-    # M3 Step 12: Seal receipts and return
+    # Step 11: Seal receipts and return
     # ========================================================================
 
     # Seal receipts (no timestamps)

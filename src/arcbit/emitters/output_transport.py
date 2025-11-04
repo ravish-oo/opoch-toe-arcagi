@@ -263,12 +263,12 @@ def _transport_to_test_frame(
     """
     Transport color planes from Π_out_i to Π_out*.
 
-    The normalized grid is on the (R_out, C_out) canvas in frame Π_out_i.
-    We transform it to frame Π_out* via:
-      1. Shift by -anchor_src (move to origin in src frame)
-      2. Apply inverse pose of src (get to canonical orientation)
-      3. Apply pose of dst (get to dst orientation)
-      4. Shift by +anchor_dst (move to position in dst frame)
+    The normalized grid Y_norm is encoded as planes in IDENTITY/RAW orientation.
+    We transform it to the test output frame Π_out* via:
+      Step 0: Apply pose_src to bring planes into source frame Π_out_i
+      Step 1: Unanchor from source (shift by -anchor_src)
+      Step 2: Apply relative pose (pose_dst ∘ inv(pose_src))
+      Step 3: Re-anchor to destination (shift by +anchor_dst)
 
     All operations maintain the fixed (R_out, C_out) canvas.
     Dimension swaps from R90/R270/FXR90/FXR270 are handled by verifying
@@ -300,26 +300,32 @@ def _transport_to_test_frame(
     for c in colors_order:
         plane = planes.get(c, [0] * R_out)
 
-        # Step 1: Unanchor from source (shift by -anchor_src)
-        dy_unanchor = -anchor_src[0]
-        dx_unanchor = -anchor_src[1]
-        plane_step1 = shift_plane(plane, dy_unanchor, dx_unanchor, R_out, C_out)
+        # Step 0: Bring normalized raw planes into Π_out_i pose
+        # The planes from pack_grid_to_planes(Y_norm) are in IDENTITY/RAW orientation
+        # We need to apply pose_src to get them into the source training frame
+        plane_src, H0, W0 = pose_plane(plane, pose_src, R_out, C_out)
+        if H0 != R_out or W0 != C_out:
+            # Dimension mismatch → incompatible
+            A_i[c] = [0] * R_out
+            continue
 
-        # Step 2 & 3: Apply relative pose transform
-        # For square canvas or non-swapping poses, dimensions stay (R_out, C_out)
-        plane_posed, H_new, W_new = pose_plane(plane_step1, T_pose, R_out, C_out)
+        # Step 1: Unanchor from source (shift by -anchor_src)
+        # Remove the anchor offset to move content to origin
+        plane_unanchored = shift_plane(plane_src, -anchor_src[0], -anchor_src[1], R_out, C_out)
+
+        # Step 2: Apply relative pose transform (pose_dst ∘ inv(pose_src))
+        # Transform from source frame to destination frame
+        plane_transformed, H_new, W_new = pose_plane(plane_unanchored, T_pose, R_out, C_out)
 
         # Verify dimensions match canvas after pose
         if H_new != R_out or W_new != C_out:
             # Dimension mismatch after pose → incompatible
-            # This should not happen given our swap check above, but verify
             A_i[c] = [0] * R_out
             continue
 
-        # Step 4: Re-anchor to destination
-        dy_reanchor = anchor_dst[0]
-        dx_reanchor = anchor_dst[1]
-        plane_final = shift_plane(plane_posed, dy_reanchor, dx_reanchor, R_out, C_out)
+        # Step 3: Re-anchor to destination (shift by +anchor_dst)
+        # Apply the destination anchor offset
+        plane_final = shift_plane(plane_transformed, +anchor_dst[0], +anchor_dst[1], R_out, C_out)
 
         A_i[c] = plane_final
 

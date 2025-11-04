@@ -17,6 +17,7 @@ class UnanimityReceipt(TypedDict):
     empty_scope_pixels: int
     unanimity_hash: str
     scope_hash: str
+    unanimity_grid_hash: str  # Grid-encoded hash for comparison with repaint_hash
 
 
 def emit_unity(
@@ -104,6 +105,14 @@ def emit_unity(
     unanimity_hash = _hash_planes(A_uni, R_out, C_out, colors_order)
     scope_hash = _hash_scope(S_uni, C_out)
 
+    # When full unanimity, compute grid-encoded hash for comparison with repaint_hash
+    if unanimous_pixels == R_out * C_out:
+        from ..core.bytesio import serialize_grid_be_row_major
+        Y_uni = _planes_to_grid(A_uni, R_out, C_out, colors_order)
+        unanimity_grid_hash = blake3_hash(serialize_grid_be_row_major(Y_uni, R_out, C_out, colors_order))
+    else:
+        unanimity_grid_hash = blake3_hash(b"")  # Empty hash when not full unanimity
+
     receipt = UnanimityReceipt(
         included_train_ids=included_train_ids,
         unanimous_pixels=unanimous_pixels,
@@ -111,6 +120,7 @@ def emit_unity(
         empty_scope_pixels=empty_scope_pixels,
         unanimity_hash=unanimity_hash,
         scope_hash=scope_hash,
+        unanimity_grid_hash=unanimity_grid_hash,
     )
 
     return A_uni, S_uni, receipt
@@ -123,6 +133,30 @@ emit_unanimity = emit_unity
 # ============================================================================
 # Helpers
 # ============================================================================
+
+
+def _planes_to_grid(
+    planes: Dict[int, List[int]], R: int, C: int, colors_order: List[int]
+) -> List[List[int]]:
+    """
+    Convert color planes to grid format.
+
+    For each pixel (r, c), find the minimum color c where plane[c][r] has bit set.
+    If no color is set, use 0 (background).
+    """
+    grid = [[0] * C for _ in range(R)]
+
+    for r in range(R):
+        for c in range(C):
+            bit = 1 << c
+            # Find minimum color with bit set
+            for color in colors_order:
+                plane = planes.get(color, [0] * R)
+                if plane[r] & bit:
+                    grid[r][c] = color
+                    break
+
+    return grid
 
 
 def _hash_planes(

@@ -273,7 +273,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-## WO-08 — Output Transport & Unanimity Emitters
+## WO-08 — Output Transport & Unanimity Emitters ✅ COMPLETED
 
 **Goal:** Transport normalized `Y'_i` onto LCM canvas; emit unanimity.
 
@@ -292,7 +292,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-### Milestone M2 (after WO-08): “Output path”
+### Milestone M2 (after WO-08): “Output path” ✅ COMPLETED
 
 * Wire: `emitters/output_transport`, `emitters/unanimity`.
 * Runner: build emits list with these two; keep witness/lattice disabled.

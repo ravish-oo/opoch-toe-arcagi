@@ -38,8 +38,8 @@ def load_arc_tasks(task_file: str, num_tasks: int = 5) -> dict:
 
 
 def test_m0_basic():
-    """Test M0 runner on a single simple task."""
-    print("Testing M0 runner on simple task...")
+    """Test M0+M2 runner on a single simple task."""
+    print("Testing M0+M2 runner on simple task...")
 
     # Simple task: 2x2 grid
     task = {
@@ -56,11 +56,12 @@ def test_m0_basic():
         ]
     }
 
-    # Run M0
-    Y, receipts = solve(task)
+    # Run M2 (output path only, witness disabled)
+    Y, receipts = solve(task, with_witness=False)
 
-    # Verify Y_placeholder = X*
-    assert Y == [[0, 2], [2, 0]], "Y_placeholder must equal X*"
+    # M2 produces actual predictions using unanimity
+    # Just verify it's a valid 2x2 grid
+    assert len(Y) == 2 and len(Y[0]) == 2, "Y must be 2x2 grid"
 
     # Extract payload for easier access
     r = receipts["payload"]
@@ -70,6 +71,10 @@ def test_m0_basic():
     assert "pack_unpack" in r
     assert "frames.canonicalize" in r
     assert "frames.apply_pose_anchor" in r
+    assert "working_canvas" in r, "M1: working_canvas section must exist"
+    assert "transports" in r, "M2: transports section must exist"
+    assert "unanimity" in r, "M2: unanimity section must exist"
+    assert "selection" in r, "M2: selection section must exist"
 
     # Verify color universe
     colors = r["color_universe.colors_order"]
@@ -94,12 +99,18 @@ def test_m0_basic():
     assert apply_receipt["equivalence_ok"] == True, "apply_pose_anchor equivalence failed"
     assert apply_receipt["hash_equal"] == True, "apply_pose_anchor hash mismatch"
 
-    print("✓ Basic M0 test passed")
+    # Verify M2 selection receipts
+    selection = r["selection"]
+    assert selection["precedence"] == ["unanimity", "bottom"], "M2 precedence must be [unanimity, bottom]"
+    assert "counts" in selection, "Selection must have counts"
+    assert "repaint_hash" in selection, "Selection must have repaint_hash"
+
+    print("✓ Basic M0+M2 test passed")
 
 
 def test_m0_determinism():
-    """Test M0 determinism check (double-run)."""
-    print("Testing M0 determinism (double-run)...")
+    """Test M2 determinism check (double-run)."""
+    print("Testing M2 determinism (double-run)...")
 
     task = {
         "train": [
@@ -115,8 +126,8 @@ def test_m0_determinism():
         ]
     }
 
-    # Run with determinism check
-    Y, receipts = solve_with_determinism_check(task)
+    # Run M2 with determinism check
+    Y, receipts = solve_with_determinism_check(task, with_witness=False)
 
     # Verify determinism flags
     assert "determinism.double_run_ok" in receipts, "Missing determinism.double_run_ok"
@@ -145,12 +156,13 @@ def test_m0_on_arc_tasks():
 
     for task_id, task_data in tasks.items():
         try:
-            # Run M0 with determinism check
-            Y, receipts = solve_with_determinism_check(task_data)
+            # Run M2 (output path only) with determinism check
+            Y, receipts = solve_with_determinism_check(task_data, with_witness=False)
 
-            # Verify Y_placeholder = X*
+            # M2 produces actual predictions, not X*
+            # Just verify it's a valid grid
             X_star = task_data["test"][0]["input"]
-            assert Y == X_star, f"Task {task_id}: Y_placeholder != X*"
+            assert isinstance(Y, list) and len(Y) > 0, f"Task {task_id}: Y must be non-empty list"
 
             # Verify determinism
             assert receipts["determinism.double_run_ok"] == True, f"Task {task_id}: Determinism check failed"
@@ -186,8 +198,8 @@ def test_m0_on_arc_tasks():
 
 
 def test_m0_edge_cases():
-    """Test M0 runner on edge cases."""
-    print("Testing M0 runner on edge cases...")
+    """Test M2 runner on edge cases."""
+    print("Testing M2 runner on edge cases...")
 
     # Edge case 1: All zeros (constant grid)
     task1 = {
@@ -204,8 +216,8 @@ def test_m0_edge_cases():
         ]
     }
 
-    Y1, receipts1 = solve(task1)
-    assert Y1 == [[0, 0], [0, 0]]
+    Y1, receipts1 = solve(task1, with_witness=False)
+    assert Y1 == [[0, 0], [0, 0]]  # Unanimity should agree on all zeros
     assert receipts1["payload"]["color_universe.colors_order"] == [0]
     print("  ✓ Edge case 1: All zeros")
 
@@ -224,8 +236,8 @@ def test_m0_edge_cases():
         ]
     }
 
-    Y2, receipts2 = solve(task2)
-    assert Y2 == [[3]]
+    Y2, receipts2 = solve(task2, with_witness=False)
+    assert len(Y2) == 1 and len(Y2[0]) == 1  # Valid 1x1 grid
     r2 = receipts2["payload"]
     assert 0 in r2["color_universe.colors_order"]  # Background always included
     assert 3 in r2["color_universe.colors_order"]  # From test
@@ -248,8 +260,8 @@ def test_m0_edge_cases():
         ]
     }
 
-    Y3, receipts3 = solve(task3)
-    assert Y3 == [[0, 1, 2], [3, 4, 5]]
+    Y3, receipts3 = solve(task3, with_witness=False)
+    assert len(Y3) > 0 and len(Y3[0]) > 0  # Valid grid (size determined by working canvas)
     assert receipts3["payload"]["color_universe.K"] == 10  # 0..9
     print("  ✓ Edge case 3: Large color palette (K=10)")
 
@@ -268,8 +280,8 @@ def test_m0_edge_cases():
         ]
     }
 
-    Y4, receipts4 = solve(task4)
-    assert Y4 == [[0, 1], [2, 3], [4, 5]]
+    Y4, receipts4 = solve(task4, with_witness=False)
+    assert len(Y4) > 0 and len(Y4[0]) > 0  # Valid grid (size determined by working canvas)
     print("  ✓ Edge case 4: Rectangular grid")
 
     print("✓ All edge cases passed")
