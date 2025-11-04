@@ -90,6 +90,35 @@ _POSE_INVERSE = {
     "FXR270": "FXR270"    # self-inverse (corrected)
 }
 
+# D4 composition table: _POSE_COMPOSE[(R1, R2)] = R1 ∘ R2
+# Computed from coordinate formulas (WO-01 section 4)
+# Convention: (R1, R2) means "apply R2 first, then R1"
+_POSE_COMPOSE = {
+    ("I", "I"): "I", ("I", "R90"): "R90", ("I", "R180"): "R180", ("I", "R270"): "R270",
+    ("I", "FX"): "FX", ("I", "FXR90"): "FXR90", ("I", "FXR180"): "FXR180", ("I", "FXR270"): "FXR270",
+
+    ("R90", "I"): "R90", ("R90", "R90"): "R180", ("R90", "R180"): "R270", ("R90", "R270"): "I",
+    ("R90", "FX"): "FXR270", ("R90", "FXR90"): "FX", ("R90", "FXR180"): "FXR90", ("R90", "FXR270"): "FXR180",
+
+    ("R180", "I"): "R180", ("R180", "R90"): "R270", ("R180", "R180"): "I", ("R180", "R270"): "R90",
+    ("R180", "FX"): "FXR180", ("R180", "FXR90"): "FXR270", ("R180", "FXR180"): "FX", ("R180", "FXR270"): "FXR90",
+
+    ("R270", "I"): "R270", ("R270", "R90"): "I", ("R270", "R180"): "R90", ("R270", "R270"): "R180",
+    ("R270", "FX"): "FXR90", ("R270", "FXR90"): "FXR180", ("R270", "FXR180"): "FXR270", ("R270", "FXR270"): "FX",
+
+    ("FX", "I"): "FX", ("FX", "R90"): "FXR90", ("FX", "R180"): "FXR180", ("FX", "R270"): "FXR270",
+    ("FX", "FX"): "I", ("FX", "FXR90"): "R90", ("FX", "FXR180"): "R180", ("FX", "FXR270"): "R270",
+
+    ("FXR90", "I"): "FXR90", ("FXR90", "R90"): "FX", ("FXR90", "R180"): "FXR270", ("FXR90", "R270"): "FXR180",
+    ("FXR90", "FX"): "R270", ("FXR90", "FXR90"): "I", ("FXR90", "FXR180"): "R90", ("FXR90", "FXR270"): "R180",
+
+    ("FXR180", "I"): "FXR180", ("FXR180", "R90"): "FXR270", ("FXR180", "R180"): "FX", ("FXR180", "R270"): "FXR90",
+    ("FXR180", "FX"): "R180", ("FXR180", "FXR90"): "R270", ("FXR180", "FXR180"): "I", ("FXR180", "FXR270"): "R90",
+
+    ("FXR270", "I"): "FXR270", ("FXR270", "R90"): "FXR180", ("FXR270", "R180"): "FXR90", ("FXR270", "R270"): "FX",
+    ("FXR270", "FX"): "R90", ("FXR270", "FXR90"): "R180", ("FXR270", "FXR180"): "R270", ("FXR270", "FXR270"): "I",
+}
+
 
 def pose_plane(plane: list[int], pid: str, H: int, W: int) -> tuple[list[int], int, int]:
     """
@@ -190,6 +219,28 @@ def pose_inverse(pid: str) -> str:
     if pid not in _POSE_INVERSE:
         raise ValueError(f"Invalid pose ID: '{pid}'")
     return _POSE_INVERSE[pid]
+
+
+def pose_compose(pid1: str, pid2: str) -> str:
+    """
+    Compose two D4 transformations: pid1 ∘ pid2 (apply pid2 first, then pid1).
+
+    Args:
+        pid1: First pose ID (applied second).
+        pid2: Second pose ID (applied first).
+
+    Returns:
+        str: Composed pose ID.
+
+    Raises:
+        ValueError: If either pid is invalid.
+
+    Spec:
+        D4 group multiplication table (WO-01 section 4 + WO-07).
+    """
+    if (pid1, pid2) not in _POSE_COMPOSE:
+        raise ValueError(f"Invalid pose composition: '{pid1}' ∘ '{pid2}'")
+    return _POSE_COMPOSE[(pid1, pid2)]
 
 
 # ============================================================================

@@ -190,7 +190,7 @@ Section: `working_canvas`
 refer to docs/WOs/WO-04a-H8H9.md
 ---
 
-### Milestone M1 (after WO-04 + WO-02): “Canvas online” ✅ COMPLETED AWAITING H1-9 runs on 139 tasks
+### Milestone M1 (after WO-04 + WO-02): “Canvas online” ✅ COMPLETED 
 
 * Wire: `normalization/lcm_canvas`, `normalization/downscale_strict`, `kernel/period` (exposed but not used yet).
 * Runner does: LCM-lift trainings; strict downscale probe disabled by default.
@@ -215,7 +215,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-## WO-06 — Witness Matcher (per training)
+## WO-06 — Witness Matcher (per training) ✅ COMPLETED
 
 **Goal:** Learn rigid pieces and σ per training with exact equality; resolve overlaps.
 
