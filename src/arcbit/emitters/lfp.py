@@ -178,15 +178,31 @@ def _reorder_emitters(
     """
     Reorder emitters to frozen family order T1...T12.
 
+    Each family may appear at most once. Raises ValueError if duplicates detected.
+
     Args:
         emitters_list: List of (family_name, A, S) in any order
 
     Returns:
         Reordered list following FROZEN_FAMILY_ORDER
 
+    Raises:
+        ValueError: If duplicate family names are detected
+
     Spec: WO-11 v1.6 frozen family order
     """
-    # Build dict for fast lookup
+    # Validate: no duplicate family names
+    family_names = [family for family, _, _ in emitters_list]
+    duplicates = {name for name in family_names if family_names.count(name) > 1}
+
+    if duplicates:
+        raise ValueError(
+            f"Duplicate emitter families detected: {sorted(duplicates)}. "
+            f"Each Tx family must be unique by design; merge duplicates inside "
+            f"the emitter before M4."
+        )
+
+    # Build dict for fast lookup (safe now; no duplicates)
     emitters_dict = {family: (A, S) for family, A, S in emitters_list}
 
     # Reorder according to frozen order

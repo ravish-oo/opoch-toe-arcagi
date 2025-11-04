@@ -391,6 +391,49 @@ def test_edge_cases():
     print("✅ TEST 7 PASSED")
 
 
+def test_duplicate_family_validation():
+    """Test that duplicate family names are rejected."""
+    print("\n" + "=" * 70)
+    print("TEST 8: Duplicate Family Validation")
+    print("=" * 70)
+
+    colors_order = [0, 1, 2]
+    R_out, C_out = 2, 2
+
+    D0 = {(r, c): 0b111 for r in range(R_out) for c in range(C_out)}
+
+    # Create two T1_witness entries (duplicate!)
+    A_wit1 = {0: [0b11, 0b11], 1: [0b00, 0b00], 2: [0b00, 0b00]}
+    S_wit1 = [0b11, 0b11]
+
+    A_wit2 = {0: [0b00, 0b00], 1: [0b11, 0b11], 2: [0b00, 0b00]}
+    S_wit2 = [0b11, 0b11]
+
+    emitters_list_duplicate = [
+        ("T1_witness", A_wit1, S_wit1),
+        ("T2_unity", A_wit2, S_wit2),
+        ("T1_witness", A_wit1, S_wit1),  # Duplicate!
+    ]
+
+    # Should raise ValueError
+    try:
+        result, stats = lfp_propagate(
+            D0, emitters_list_duplicate, forbids=None,
+            colors_order=colors_order, R_out=R_out, C_out=C_out
+        )
+        # If we got here, validation failed
+        assert False, "Should have raised ValueError for duplicate families"
+    except ValueError as e:
+        error_msg = str(e)
+        assert "Duplicate emitter families detected" in error_msg, \
+            f"Expected duplicate error, got: {error_msg}"
+        assert "T1_witness" in error_msg, \
+            f"Expected T1_witness in error, got: {error_msg}"
+        print(f"✓ Caught duplicate error: {error_msg[:80]}...")
+
+    print("✅ TEST 8 PASSED")
+
+
 if __name__ == "__main__":
     print("WO-11 LFP PROPAGATOR - UNIT TESTS")
     print("=" * 70)
@@ -403,6 +446,7 @@ if __name__ == "__main__":
         test_frozen_family_order,
         test_determinism,
         test_edge_cases,
+        test_duplicate_family_validation,
     ]
 
     passed = 0
