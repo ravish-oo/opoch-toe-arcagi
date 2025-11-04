@@ -190,7 +190,7 @@ Section: `working_canvas`
 refer to docs/WOs/WO-04a-H8H9.md
 ---
 
-### Milestone M1 (after WO-04 + WO-02): “Canvas online”
+### Milestone M1 (after WO-04 + WO-02): “Canvas online” ✅ COMPLETED AWAITING H1-9 runs on 139 tasks
 
 * Wire: `normalization/lcm_canvas`, `normalization/downscale_strict`, `kernel/period` (exposed but not used yet).
 * Runner does: LCM-lift trainings; strict downscale probe disabled by default.
