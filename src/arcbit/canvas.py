@@ -495,6 +495,28 @@ def choose_working_canvas(
 
                 # Validate: sizes must be positive
                 if R_test > 0 and C_test > 0:
+                    # BUGFIX: Check if test input dimensions match any training input dimensions
+                    # If so, verify prediction consistency to avoid spurious feature dependencies
+                    test_dims_match_training = False
+                    unanimous_training_output = None
+
+                    for i, (H_train, W_train) in enumerate(sizes_in):
+                        if (H_star, W_star) == (H_train, W_train):
+                            test_dims_match_training = True
+                            R_train_out, C_train_out = sizes_out[i]
+                            if unanimous_training_output is None:
+                                unanimous_training_output = (R_train_out, C_train_out)
+                            elif unanimous_training_output != (R_train_out, C_train_out):
+                                # Training examples with same input dims have different outputs
+                                unanimous_training_output = None
+                                break
+
+                    # If test dims match training and training outputs are unanimous,
+                    # skip H8 candidates that predict differently (likely spurious)
+                    if test_dims_match_training and unanimous_training_output is not None:
+                        if (R_test, C_test) != unanimous_training_output:
+                            continue  # Skip inconsistent prediction
+
                     test_area = R_test * C_test
                     candidates.append(("H8", params, test_area))
                     # Track best area
@@ -556,6 +578,24 @@ def choose_working_canvas(
 
                                 fv_star = _extract_size_features(xstar_grid, H_star, W_star, colors_order)
 
+                                # First, evaluate guard on all training inputs to check consistency
+                                training_guard_results = []
+                                for fv_train in features_in:
+                                    if guard == "has_row_period":
+                                        train_guard = (fv_train["periods"]["lcm_r"] is not None)
+                                    elif guard == "has_col_period":
+                                        train_guard = (fv_train["periods"]["lcm_c"] is not None)
+                                    elif guard == "ncc_gt_1":
+                                        train_guard = (fv_train["ncc_total"] > 1)
+                                    elif guard == "sum_gt_half":
+                                        train_half = (fv_train["H"] * fv_train["W"]) // 2
+                                        train_guard = (fv_train["sum_nonzero"] > train_half)
+                                    elif guard == "h_gt_w":
+                                        train_guard = (fv_train["H"] > fv_train["W"])
+                                    else:
+                                        train_guard = False
+                                    training_guard_results.append(train_guard)
+
                                 # Evaluate guard on test input
                                 if guard == "has_row_period":
                                     guard_result = (fv_star["periods"]["lcm_r"] is not None)
@@ -568,6 +608,13 @@ def choose_working_canvas(
                                     guard_result = (fv_star["sum_nonzero"] > half_area)
                                 elif guard == "h_gt_w":
                                     guard_result = (H_star > W_star)
+                                else:
+                                    guard_result = False
+
+                                # BUGFIX: Skip H9 candidates where test guard differs from ALL training guards
+                                # This prevents using untested branches on test data
+                                if guard_result not in training_guard_results:
+                                    continue  # Test uses different branch than any training; skip
 
                                 # Select clause
                                 if guard_result:

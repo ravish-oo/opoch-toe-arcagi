@@ -1,0 +1,1046 @@
+{
+  "section": "M1-canvas-online",
+  "spec_version": "1.5",
+  "param_registry_hash": "4cdecc6a6a0abc33d5885bf5d4e90530d20062b2825b247e1ac5a067a86b537a",
+  "payload": {
+    "color_universe.colors_order": [
+      0,
+      2,
+      4,
+      6,
+      7
+    ],
+    "color_universe.added_from_test": [
+      7
+    ],
+    "color_universe.K": 5,
+    "pack_unpack": [
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "input",
+        "H": 3,
+        "W": 3,
+        "hash_grid": "90ece9f690fe5c23fa1c122136ff870e31f0ce8c89d7306bc743b99ca024dc33",
+        "hash_planes": "62823770a97f2f113001a70e282b3be0c1aec1b88b31f3406897b7b3b2a0863b",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "output",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "cc35ae7f50df841f9ee09157aa74fad48356f73b8abf35ff2545edbe9cd1728b",
+        "hash_planes": "55eb33990ade4e206c1b8b2bc59b4a0e6fe3e5afe19b772a35b42859f27ce895",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "input",
+        "H": 3,
+        "W": 3,
+        "hash_grid": "2b99559666a99f7ee9fb45a0e60910e34a90fa69b4b2d715aa6d6c28055ad26b",
+        "hash_planes": "c668bed03f15f01eeac8bd656fe613f45f9a10aac85d9948fdcad7e58f33f014",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "output",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "b221efe44259155b0f2c2952cf3999a7a6b4c06bd969b4a45744b5a98a9d7edc",
+        "hash_planes": "ddf7ba6505adb09f45c2de0fe07a4f7275492446ddfd44ba5bcefaa1950d3338",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "input",
+        "H": 3,
+        "W": 3,
+        "hash_grid": "4f1e52ced20b88487b79afa5f0243bed98e654231e7cd23c2c7028cb445bed98",
+        "hash_planes": "4c685ccd22bba6b5f054f19db872d43d8c2d6d027c5d0de9fa9fbe614134aee4",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "output",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "3de938b936e07c7e234a06e29637c19861f8ecf04ef0fb5ad0f360a09a1fcd53",
+        "hash_planes": "2b8f2ac0c1a03ace33d242c70383972b91bfa5fd50c2a17f930213b9e5a66fbd",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "input",
+        "H": 3,
+        "W": 3,
+        "hash_grid": "9ed1f417fdb138f8b0e51a17d7ac42f76c4cb2702a70c5a54e171a683489c98b",
+        "hash_planes": "5ab634c31df018c658da49f6edb79ddf4263c7f88dc7a16b49e764bb02071e91",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "output",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "9e74e7808ef6de0a273a32347662b22bcf6ad69fa4c8f74d7ff1ea271f627f32",
+        "hash_planes": "20941a5e11200fd14a41a5912b6388a1ecd0c2733451879377d6732e36292365",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 4,
+        "io_type": "input",
+        "H": 3,
+        "W": 3,
+        "hash_grid": "1f62f687331cf279f581b50f6c2226319b19c19a77e2ecffd682a0b9c583de4f",
+        "hash_planes": "0149afcd9f5769ef4f0a45171111208305d69db7a89365d4ac10fd46b2c4e849",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 4,
+        "io_type": "output",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "9049edb9ac8b06c0e5b0f6215c93234b5504dc81f39d632f680a922b0d04f1ae",
+        "hash_planes": "e41f95604d0d75732e8f5a1aa20b6d50a5ab35ff73bcb44a34c04efdc0c9efb3",
+        "pack_equal": true
+      },
+      {
+        "split": "test",
+        "idx": 0,
+        "io_type": "input",
+        "H": 3,
+        "W": 3,
+        "hash_grid": "2577195c4d9e09cef1df27523134a85ad1fa690a472c0cbd861a93e7466c4105",
+        "hash_planes": "0751992617a87f96e7e70780be2eb81fa2c310e2a29ddba56940225e05161431",
+        "pack_equal": true
+      }
+    ],
+    "frames.canonicalize": [
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 3,
+          "W": 3,
+          "colors_order": [
+            0,
+            6
+          ],
+          "nonzero_count": 5
+        },
+        "frame.pose": {
+          "pose_id": "FXR270",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "2baeb9115441ac3c85c38c53bf99c2b1b2e0e2802b26ddd303c192db5e3880e7",
+          "hash_after": "2baeb9115441ac3c85c38c53bf99c2b1b2e0e2802b26ddd303c192db5e3880e7"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            6
+          ],
+          "nonzero_count": 25
+        },
+        "frame.pose": {
+          "pose_id": "FXR270",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "3d284b353f84d95fae7cfbaa264123594b1d3fba4e19813a8f27a1bb9e7bbd8a",
+          "hash_after": "3d284b353f84d95fae7cfbaa264123594b1d3fba4e19813a8f27a1bb9e7bbd8a"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 3,
+          "W": 3,
+          "colors_order": [
+            0,
+            4
+          ],
+          "nonzero_count": 3
+        },
+        "frame.pose": {
+          "pose_id": "I",
+          "pose_tie_count": 2
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": true
+        },
+        "frame.bytes": {
+          "hash_before": "e16a0bb654f278f952fa67dfcf7f896f2d40a21111f5ef77491f4ac7e6fc02f9",
+          "hash_after": "e16a0bb654f278f952fa67dfcf7f896f2d40a21111f5ef77491f4ac7e6fc02f9"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            4
+          ],
+          "nonzero_count": 9
+        },
+        "frame.pose": {
+          "pose_id": "I",
+          "pose_tie_count": 2
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": true
+        },
+        "frame.bytes": {
+          "hash_before": "6699da5bb1f92e03b9589d80e84be5751d6a601d4284a3d00233e39177ed9cf0",
+          "hash_after": "6699da5bb1f92e03b9589d80e84be5751d6a601d4284a3d00233e39177ed9cf0"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 3,
+          "W": 3,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 3
+        },
+        "frame.pose": {
+          "pose_id": "R180",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "49b291330fa4b4c59249eab90feeb1929c75029f3d595b7a521b7d84636c9333",
+          "hash_after": "49b291330fa4b4c59249eab90feeb1929c75029f3d595b7a521b7d84636c9333"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 9
+        },
+        "frame.pose": {
+          "pose_id": "R180",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "d5bd770e577437884a00ba879c357e87973b2ae728513d1847e303dfebf16c97",
+          "hash_after": "d5bd770e577437884a00ba879c357e87973b2ae728513d1847e303dfebf16c97"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 3,
+          "W": 3,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 5
+        },
+        "frame.pose": {
+          "pose_id": "FX",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "b3234a4f54ff9d15f284e588d8cfb4099615254bb3cbca0b8b14a6223718934d",
+          "hash_after": "b3234a4f54ff9d15f284e588d8cfb4099615254bb3cbca0b8b14a6223718934d"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 25
+        },
+        "frame.pose": {
+          "pose_id": "FX",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "843a6e39f44f1978d3649aa43112296b95d671888d4e6a52b4e79eaa9578229b",
+          "hash_after": "843a6e39f44f1978d3649aa43112296b95d671888d4e6a52b4e79eaa9578229b"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 4,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 3,
+          "W": 3,
+          "colors_order": [
+            0,
+            7
+          ],
+          "nonzero_count": 7
+        },
+        "frame.pose": {
+          "pose_id": "R270",
+          "pose_tie_count": 2
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "06b8545602ab571812fe64273fa7029b44295148487e814f69c0cbba2e303374",
+          "hash_after": "06b8545602ab571812fe64273fa7029b44295148487e814f69c0cbba2e303374"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 4,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            7
+          ],
+          "nonzero_count": 49
+        },
+        "frame.pose": {
+          "pose_id": "R270",
+          "pose_tie_count": 2
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "89ec2da83b1e4316a3fa73fa910a3699e6abedbfd417fbbb846ed166e5aa5180",
+          "hash_after": "89ec2da83b1e4316a3fa73fa910a3699e6abedbfd417fbbb846ed166e5aa5180"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "test",
+        "idx": 0,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 3,
+          "W": 3,
+          "colors_order": [
+            0,
+            7
+          ],
+          "nonzero_count": 6
+        },
+        "frame.pose": {
+          "pose_id": "R90",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "2628b6633084a614961ec4dd631fd1580de75fe5d8231ca4047f849f19dd93fd",
+          "hash_after": "2628b6633084a614961ec4dd631fd1580de75fe5d8231ca4047f849f19dd93fd"
+        },
+        "idempotent": true
+      }
+    ],
+    "frames.apply_pose_anchor": {
+      "split": "test",
+      "idx": 0,
+      "apply.pose_id": "R90",
+      "apply.anchor": [
+        0,
+        0
+      ],
+      "shape_before": [
+        3,
+        3
+      ],
+      "shape_after": [
+        3,
+        3
+      ],
+      "hash_grid_from_planes": "dd242de4fe1ca72cb82969b85c33cde5edb15020462df0a039fcd45a6c4d416f",
+      "hash_grid_canon": "dd242de4fe1ca72cb82969b85c33cde5edb15020462df0a039fcd45a6c4d416f",
+      "hash_equal": true,
+      "equivalence_ok": true
+    },
+    "features.trainings": [
+      {
+        "train_id": 0,
+        "features_hash": "d6667fa1fa431bcf9867bdfa174036468dc6c8d715e77d09ea5b136b4f7779da"
+      },
+      {
+        "train_id": 1,
+        "features_hash": "6f223504308c8332518f0812a6e5929c52a37014b50fa59f177cc6dbe34da997"
+      },
+      {
+        "train_id": 2,
+        "features_hash": "b951aa0cd5c4248816410e12830a1420ea51e260d9d03dbeb8e7254435d6dc31"
+      },
+      {
+        "train_id": 3,
+        "features_hash": "1183928bcd4d912b307478bb5f4d8bfc27542b69d87a198ab2a3e32fa95f93df"
+      },
+      {
+        "train_id": 4,
+        "features_hash": "0292ae3d3013a946147f48c08d753bdda2dad481182889ed242473b052aadb3e"
+      }
+    ],
+    "working_canvas": {
+      "num_trainings": 5,
+      "features_hash_per_training": [
+        "8acd6c0e4f163a1b73a2a11302496abfbd2932adfa2971cd0713cf3613602d01",
+        "525055c7fcc87fdf20c83408af7e1885602d5f50e3a5da373d9f7b19c68f0610",
+        "5961bf547f257ad180cf8ed1c648da648f9ab39eb9bd81f6ad4bf7e94df7a6c2",
+        "f80e34bb5dd2f94948df81a8b5bd4f64fab03e8b4334dbcb6f6c7889964b370f",
+        "6faf1bdc2e118ea730ede7c7980d29dbe79fa1f100f2b7fed9860ee20e000c98"
+      ],
+      "test_input_shape": {
+        "H": 3,
+        "W": 3
+      },
+      "top2_colors": {
+        "c1": 2,
+        "c2": 7
+      },
+      "families_requested": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7"
+      ],
+      "families_eval": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7"
+      ],
+      "family_eval_mode": "full",
+      "attempts_sample": [
+        {
+          "family": "H1",
+          "params": {
+            "a": 3,
+            "c": 3
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H2",
+          "params": {
+            "b": 6,
+            "d": 6
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 1,
+            "b": 6,
+            "c": 1,
+            "d": 6
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 1,
+            "b": 6,
+            "c": 2,
+            "d": 3
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 1,
+            "b": 6,
+            "c": 3,
+            "d": 0
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 2,
+            "b": 3,
+            "c": 1,
+            "d": 6
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 2,
+            "b": 3,
+            "c": 2,
+            "d": 3
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 2,
+            "b": 3,
+            "c": 3,
+            "d": 0
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 3,
+            "b": 0,
+            "c": 1,
+            "d": 6
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 3,
+            "b": 0,
+            "c": 2,
+            "d": 3
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 3,
+            "b": 0,
+            "c": 3,
+            "d": 0
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H4",
+          "params": {
+            "R0": 9,
+            "C0": 9
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "fit_all": true
+        }
+      ],
+      "attempts_sample_note": "First 100 successful candidates (for debugging)",
+      "total_candidates_checked": 19845,
+      "successful_candidates": 12,
+      "attempts_summary": {
+        "H8": {
+          "rows_total": 0,
+          "rows_ok": 0,
+          "cols_total": 0,
+          "cols_ok": 0,
+          "pairs_evaluated": 0
+        }
+      },
+      "winner": {
+        "family": "H1",
+        "params": {
+          "a": 3,
+          "c": 3
+        },
+        "test_area": 81
+      },
+      "R_out": 9,
+      "C_out": 9,
+      "verified_train_ids": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "transports": {
+      "transports": [
+        {
+          "train_id": 0,
+          "norm_kind": "replicate",
+          "s_r": 1,
+          "s_c": 1,
+          "block_constancy_ok": null,
+          "pose_src": "FXR270",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 81,
+          "transport_hash": "1c2e57bab3d7f709718239e5ac9b3fcc267e963eb57eb45c411b5b97a2d37ce7"
+        },
+        {
+          "train_id": 1,
+          "norm_kind": "replicate",
+          "s_r": 1,
+          "s_c": 1,
+          "block_constancy_ok": null,
+          "pose_src": "I",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 81,
+          "transport_hash": "d03e921a44a59295f1ca1c9aaaddeccfab0f608302e89ffec0ad865edd96aea5"
+        },
+        {
+          "train_id": 2,
+          "norm_kind": "replicate",
+          "s_r": 1,
+          "s_c": 1,
+          "block_constancy_ok": null,
+          "pose_src": "R180",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 81,
+          "transport_hash": "40798197658931ab6045d729fa61d91b1ef505369e07664c71f301a09bdb68cb"
+        },
+        {
+          "train_id": 3,
+          "norm_kind": "replicate",
+          "s_r": 1,
+          "s_c": 1,
+          "block_constancy_ok": null,
+          "pose_src": "FX",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 81,
+          "transport_hash": "dede7b4de68886ee940c788ff8e6a48502b156d6971217c34b0bbe1545befa20"
+        },
+        {
+          "train_id": 4,
+          "norm_kind": "replicate",
+          "s_r": 1,
+          "s_c": 1,
+          "block_constancy_ok": null,
+          "pose_src": "R270",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 81,
+          "transport_hash": "00acf5133ebb0fe66e728bfc09a4d14c9aad938f17c7373eef0dab1e067dce5e"
+        }
+      ],
+      "n_included": 5,
+      "transports_hash": "3e7da0c2e0077f51de47b560926b133b994df942c0560873e93ace815d685b06"
+    },
+    "unanimity": {
+      "included_train_ids": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "unanimous_pixels": 16,
+      "total_covered_pixels": 81,
+      "empty_scope_pixels": 0,
+      "unanimity_hash": "c12d4fd2cdcaa94c0893fa03b77f758c5456a49767af9f12beb84246caa43109",
+      "scope_hash": "2b5eb4c4e92b74c44df0415d30da173454de851f10d9117a8272663ae9c7abc3",
+      "unanimity_grid_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    "components": [
+      {
+        "train_id": 0,
+        "num_components": 2,
+        "components_hash": "269bf66ee4782c821aa5ac1bae07eebdf2b597220373b14d61aa7d0c6b809fe6"
+      },
+      {
+        "train_id": 1,
+        "num_components": 3,
+        "components_hash": "e7ef28f1ae75236db0bdcfeb35952263695494538f5335f522c7b19e8b565d9d"
+      },
+      {
+        "train_id": 2,
+        "num_components": 2,
+        "components_hash": "08b49d7172913b2f8d461361abee0dcd931b8afac4d46be06ef21bcf9ec01400"
+      },
+      {
+        "train_id": 3,
+        "num_components": 2,
+        "components_hash": "4fee3d6c473f0966e6bcbffb114da6da7ff50bee4ccfdcb4b551f32922c598f2"
+      },
+      {
+        "train_id": 4,
+        "num_components": 1,
+        "components_hash": "a28697e90acbc67bffe05a7d97f65a5be53e212426d7fa99de4f1efd8ccca69e"
+      }
+    ],
+    "witness_learn": [
+      {
+        "train_id": 0,
+        "silent": false,
+        "num_pieces": 2,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "0461abd620f188810bfdf4e91c14d319a517d4e8ae4fa6c715bb8fec7a54ac68"
+      },
+      {
+        "train_id": 1,
+        "silent": false,
+        "num_pieces": 3,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "d4e6817e1def1cb34f336dab64259159c6f17d982727a362c5cf8e057a0be5cf"
+      },
+      {
+        "train_id": 2,
+        "silent": false,
+        "num_pieces": 0,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "2964ac2d8fb2783b8788facab0af19cf5f7e5efaaafa1083807c579293fdfc21"
+      },
+      {
+        "train_id": 3,
+        "silent": false,
+        "num_pieces": 1,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "0efae5a59e5bb0916096d1585124a4b8f4778e6c6f36e7a257a5d2cfe1fc427b"
+      },
+      {
+        "train_id": 4,
+        "silent": false,
+        "num_pieces": 0,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "8f993b67a9d5a51488c708dfbbd6e178285fa484ed174381245699453d949672"
+      }
+    ],
+    "witness_emit": {
+      "inputs": {
+        "R_out": 9,
+        "C_out": 9,
+        "num_trainings": 5,
+        "num_pieces_total": 6
+      },
+      "scopes": {
+        "per_training_scope_bits": [
+          4,
+          2,
+          0,
+          2,
+          0
+        ],
+        "scope_bits": 8
+      },
+      "admits": {
+        "0": [
+          511,
+          511,
+          511,
+          511,
+          511,
+          511,
+          372,
+          446,
+          511
+        ],
+        "2": [
+          511,
+          511,
+          511,
+          511,
+          511,
+          511,
+          308,
+          318,
+          511
+        ],
+        "4": [
+          511,
+          511,
+          511,
+          511,
+          511,
+          511,
+          308,
+          318,
+          511
+        ],
+        "6": [
+          511,
+          511,
+          511,
+          511,
+          511,
+          511,
+          308,
+          318,
+          511
+        ],
+        "7": [
+          511,
+          511,
+          511,
+          511,
+          511,
+          511,
+          447,
+          383,
+          511
+        ],
+        "A_wit_hash": "95d7d9356c62009ddf8c540de43ab72919bdc8ffd29b0e3f0e8728090f1298db"
+      },
+      "families": {
+        "combined_from_trainings": [
+          0,
+          1,
+          3
+        ]
+      },
+      "per_training_piece_counts": [
+        2,
+        3,
+        0,
+        1,
+        0
+      ]
+    },
+    "forbids": {
+      "forbid_symmetric": false,
+      "matrix_hash": "1e8ab3f6798e2165430cca0831d0cc34f4e9a55d3078cb47deef1b487223eb2c",
+      "edges_count": 288,
+      "colors_with_forbids": [
+        2,
+        4,
+        6,
+        7
+      ]
+    },
+    "lfp": {
+      "admit_passes": 1,
+      "ac3_passes": 0,
+      "total_admit_prunes": 87,
+      "total_ac3_prunes": 0,
+      "empties": 3,
+      "domains_hash": "08d764c34de2e21aaa37e5d81e46cb06a7c96290bba199f445bac6652aa5e899",
+      "section_hash": "437c866c557e69e1cf4eb19a2a9e2df247d6230d03e177d5b0fea63ac07d11e8"
+    },
+    "lfp_status": "UNSAT"
+  },
+  "section_hash": "f567d57c3417d4d6cf6787672034e7017f1e500280cefa47e46dd03fb11d3cc7"
+}

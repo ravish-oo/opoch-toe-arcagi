@@ -1,0 +1,792 @@
+{
+  "section": "M1-canvas-online",
+  "spec_version": "1.5",
+  "param_registry_hash": "4cdecc6a6a0abc33d5885bf5d4e90530d20062b2825b247e1ac5a067a86b537a",
+  "payload": {
+    "color_universe.colors_order": [
+      0,
+      2,
+      3,
+      4,
+      8
+    ],
+    "color_universe.added_from_test": [
+      2
+    ],
+    "color_universe.K": 5,
+    "pack_unpack": [
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "input",
+        "H": 15,
+        "W": 15,
+        "hash_grid": "ef62ad64bd749f8ae76a79ada8aa4267f9f9a0b10a6c9a32948af00a58cd4a9f",
+        "hash_planes": "b649691e92f1241606bb3ca42bf817d5074472749cebf98b042372fdb6abb6c9",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "output",
+        "H": 15,
+        "W": 15,
+        "hash_grid": "24fb55a0554250797a443409ba126ed76ac05673065033e49892f2f7dc999943",
+        "hash_planes": "0fe3dce10cb8fa308b9370814479f85d6429d60044e2d0bd89426a45335c8148",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "input",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "7d9abb71d26efa103079fa988448a1d7075c754611182974c729bfc7948370e7",
+        "hash_planes": "1d71173c324b907ceb21e31a83f4adaead6e604a9706bf3e8ee1d89ca2ec66b0",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "output",
+        "H": 9,
+        "W": 9,
+        "hash_grid": "3e96d183a3cb3b1f06c6861344b9657e35c571e6e4f6cc0dcdb67510ef4472b6",
+        "hash_planes": "930f8681100a1f01ba5277e432dfbd4684064be9d244b497ab62e7af7a3193c0",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "input",
+        "H": 13,
+        "W": 13,
+        "hash_grid": "10d93fd51ebe34a67a62e485eecf623768ed470edd76fe4c90991fdee1afff40",
+        "hash_planes": "48b7ecb272baea891e9e83bc14322ef165f4cd43ec426de25c3fdcbfe26bc896",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "output",
+        "H": 13,
+        "W": 13,
+        "hash_grid": "850a65115dd135eeb331247eeb93d1173db326a4deab09d6f92abe283c6f8276",
+        "hash_planes": "98d9cb1c2512be9901d37818d7bb5106cbbf2aad44e64cd24d08aae1fb597ac6",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "input",
+        "H": 7,
+        "W": 7,
+        "hash_grid": "50937e5f5d4f2ba88afb5f5233bfdc7ed98c0d504a255e2129f65a82de56f751",
+        "hash_planes": "f9bbd1d62e0cbbf65eeb4a0e1d9e5f78cbd1eed9caf206fe3a9f915e79aacb37",
+        "pack_equal": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "output",
+        "H": 7,
+        "W": 7,
+        "hash_grid": "7b0600b1aa48154ed7c81d4de20cca48a66b93747572b5077062e7901cdeb07a",
+        "hash_planes": "bae74382058996e56b2ce90318f425428362f973f164ff0b7e72f1dd03a2f7eb",
+        "pack_equal": true
+      },
+      {
+        "split": "test",
+        "idx": 0,
+        "io_type": "input",
+        "H": 20,
+        "W": 20,
+        "hash_grid": "d1da7617979aef40499f0a12117bb93d84f737ebb442e79909b7c82cccd6fd03",
+        "hash_planes": "639f696546c482c880145681995162f9d08908abbcd9f333427be33a4a780c4d",
+        "pack_equal": true
+      }
+    ],
+    "frames.canonicalize": [
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 15,
+          "W": 15,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 50
+        },
+        "frame.pose": {
+          "pose_id": "R270",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "db3fa8b6055866895e1bcb6a22377f7abc47ae64e174a0811d701238b91094d1",
+          "hash_after": "db3fa8b6055866895e1bcb6a22377f7abc47ae64e174a0811d701238b91094d1"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 0,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 15,
+          "W": 15,
+          "colors_order": [
+            0,
+            2,
+            3,
+            8
+          ],
+          "nonzero_count": 106
+        },
+        "frame.pose": {
+          "pose_id": "R270",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "41fdd33f51ead86c486db1f4591e14fdd0c1fcd2e559d84a525c6483ef8264b5",
+          "hash_after": "41fdd33f51ead86c486db1f4591e14fdd0c1fcd2e559d84a525c6483ef8264b5"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 25
+        },
+        "frame.pose": {
+          "pose_id": "I",
+          "pose_tie_count": 8
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": true
+        },
+        "frame.bytes": {
+          "hash_before": "02ab6306e452ff604fd1aa3a3c0c32e8f32f4d35b40a285890fd9edcb3d4e0fa",
+          "hash_after": "02ab6306e452ff604fd1aa3a3c0c32e8f32f4d35b40a285890fd9edcb3d4e0fa"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 1,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 9,
+          "W": 9,
+          "colors_order": [
+            0,
+            2,
+            4
+          ],
+          "nonzero_count": 49
+        },
+        "frame.pose": {
+          "pose_id": "I",
+          "pose_tie_count": 8
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": true
+        },
+        "frame.bytes": {
+          "hash_before": "76cb157271fb0cbd7c7a23bceb8cd6535dfe290bbf99bf3e63de5959d5960f3a",
+          "hash_after": "76cb157271fb0cbd7c7a23bceb8cd6535dfe290bbf99bf3e63de5959d5960f3a"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 13,
+          "W": 13,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 42
+        },
+        "frame.pose": {
+          "pose_id": "FXR90",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 1,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "9379d4d8c4e9ee86da2305b4fae026fb85d24ea3a593decb7b33a70019d6c351",
+          "hash_after": "07c9d233cb358340909ab8d76e0ce284108a06918221c0b0be22a872ad1b5024"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 2,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 13,
+          "W": 13,
+          "colors_order": [
+            0,
+            2,
+            4,
+            8
+          ],
+          "nonzero_count": 74
+        },
+        "frame.pose": {
+          "pose_id": "FXR90",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 1,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "e19330edd6e5f281f6e09d583ee2ea3fa34fb30e08b6db8491f1c264e7bee78a",
+          "hash_after": "f1787098649d1e4cdd941d8d66d85d99223a7b9d934fd9144e65e518aef43123"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 7,
+          "W": 7,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 17
+        },
+        "frame.pose": {
+          "pose_id": "I",
+          "pose_tie_count": 8
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": true
+        },
+        "frame.bytes": {
+          "hash_before": "07cecf1d7e053159becacc1ab75d20adfcab553b21af4e3e96dcdec6b7e59574",
+          "hash_after": "07cecf1d7e053159becacc1ab75d20adfcab553b21af4e3e96dcdec6b7e59574"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "train",
+        "idx": 3,
+        "io_type": "output",
+        "frame.inputs": {
+          "H": 7,
+          "W": 7,
+          "colors_order": [
+            0,
+            2,
+            8
+          ],
+          "nonzero_count": 25
+        },
+        "frame.pose": {
+          "pose_id": "I",
+          "pose_tie_count": 8
+        },
+        "frame.anchor": {
+          "r": 0,
+          "c": 0,
+          "all_zero": true
+        },
+        "frame.bytes": {
+          "hash_before": "e7376eb9fd98648a20b2cd0eef4e4490ca6340700f7567d591d26453eca7c630",
+          "hash_after": "e7376eb9fd98648a20b2cd0eef4e4490ca6340700f7567d591d26453eca7c630"
+        },
+        "idempotent": true
+      },
+      {
+        "split": "test",
+        "idx": 0,
+        "io_type": "input",
+        "frame.inputs": {
+          "H": 20,
+          "W": 20,
+          "colors_order": [
+            0,
+            2
+          ],
+          "nonzero_count": 92
+        },
+        "frame.pose": {
+          "pose_id": "FXR270",
+          "pose_tie_count": 1
+        },
+        "frame.anchor": {
+          "r": 1,
+          "c": 0,
+          "all_zero": false
+        },
+        "frame.bytes": {
+          "hash_before": "7c3705babda5b47c791a45952062cb593e2c1a6a160d7a5aa632cb1d1d682d4b",
+          "hash_after": "28e92f56e9b6b3d9da9ea9490193eb9a546b95e621a2eec3924fd80110218a0b"
+        },
+        "idempotent": true
+      }
+    ],
+    "frames.apply_pose_anchor": {
+      "split": "test",
+      "idx": 0,
+      "apply.pose_id": "FXR270",
+      "apply.anchor": [
+        1,
+        0
+      ],
+      "shape_before": [
+        20,
+        20
+      ],
+      "shape_after": [
+        20,
+        20
+      ],
+      "hash_grid_from_planes": "947bbe42e61f4a0734986decd225fd2b26f823452a196e49e3e8aac044dc2e46",
+      "hash_grid_canon": "947bbe42e61f4a0734986decd225fd2b26f823452a196e49e3e8aac044dc2e46",
+      "hash_equal": true,
+      "equivalence_ok": true
+    },
+    "features.trainings": [
+      {
+        "train_id": 0,
+        "features_hash": "9eb298f11f1a4557e863a19909ddb88c9be034779b288bc6b43bbc05a1e3c140"
+      },
+      {
+        "train_id": 1,
+        "features_hash": "3acbd613e05a281a0412c24dd0e010a07eef7fe9e0911974e41ed12ef134b1e6"
+      },
+      {
+        "train_id": 2,
+        "features_hash": "6fc381750dab0727aabc4ec7aa2a055eb477c42f1ff478b3c410c6b5436ebe8b"
+      },
+      {
+        "train_id": 3,
+        "features_hash": "8d3bec257efd2e22d29accce4064fd589829462e484de4bd9af059f685f1c446"
+      }
+    ],
+    "working_canvas": {
+      "num_trainings": 4,
+      "features_hash_per_training": [
+        "e9644d2e01e59a56342c861e53b01cdae8c598183a5e1eb42d5a21b1aadaed28",
+        "d201c488e44151f7027e45bdecd38c66dc0ad92bb5818cdab4eab7f92a769108",
+        "53780cccb901fe4e095b6a8f537b0dae1cf7bc32728ed587104cf57faab4541b",
+        "b8e319f472bd9fd1ff57c3f700c782a2d429ae9f0925d8c1cee4f2fd71385ff7"
+      ],
+      "test_input_shape": {
+        "H": 20,
+        "W": 20
+      },
+      "top2_colors": {
+        "c1": 2,
+        "c2": 3
+      },
+      "families_requested": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7"
+      ],
+      "families_eval": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7"
+      ],
+      "family_eval_mode": "full",
+      "attempts_sample": [
+        {
+          "family": "H1",
+          "params": {
+            "a": 1,
+            "c": 1
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H2",
+          "params": {
+            "b": 0,
+            "d": 0
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H3",
+          "params": {
+            "a": 1,
+            "b": 0,
+            "c": 1,
+            "d": 0
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "fit_all": true
+        },
+        {
+          "family": "H5",
+          "params": {
+            "kr": 3,
+            "kc": 3
+          },
+          "ok_train_ids": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "fit_all": true
+        }
+      ],
+      "attempts_sample_note": "First 100 successful candidates (for debugging)",
+      "total_candidates_checked": 19845,
+      "successful_candidates": 4,
+      "attempts_summary": {
+        "H8": {
+          "rows_total": 0,
+          "rows_ok": 0,
+          "cols_total": 0,
+          "cols_ok": 0,
+          "pairs_evaluated": 0
+        }
+      },
+      "winner": {
+        "family": "H5",
+        "params": {
+          "kr": 3,
+          "kc": 3
+        },
+        "test_area": 81
+      },
+      "R_out": 9,
+      "C_out": 9,
+      "verified_train_ids": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "transports": {
+      "transports": [
+        {
+          "train_id": 0,
+          "norm_kind": "silent",
+          "s_r": null,
+          "s_c": null,
+          "block_constancy_ok": null,
+          "pose_src": "R270",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 0,
+          "transport_hash": "8d160d23846f1a804cc947253e6940ad25e4b646c5ae5dd93d469d584a219950"
+        },
+        {
+          "train_id": 1,
+          "norm_kind": "replicate",
+          "s_r": 1,
+          "s_c": 1,
+          "block_constancy_ok": null,
+          "pose_src": "I",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 81,
+          "transport_hash": "ff71f27f0d34eab73121284e8f6bd12999398bebddb941173a26cf0f62ef4f5f"
+        },
+        {
+          "train_id": 2,
+          "norm_kind": "silent",
+          "s_r": null,
+          "s_c": null,
+          "block_constancy_ok": null,
+          "pose_src": "FXR90",
+          "anchor_src": [
+            1,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 0,
+          "transport_hash": "8d160d23846f1a804cc947253e6940ad25e4b646c5ae5dd93d469d584a219950"
+        },
+        {
+          "train_id": 3,
+          "norm_kind": "silent",
+          "s_r": null,
+          "s_c": null,
+          "block_constancy_ok": null,
+          "pose_src": "I",
+          "anchor_src": [
+            0,
+            0
+          ],
+          "pose_dst": "I",
+          "anchor_dst": [
+            0,
+            0
+          ],
+          "scope_bits": 0,
+          "transport_hash": "8d160d23846f1a804cc947253e6940ad25e4b646c5ae5dd93d469d584a219950"
+        }
+      ],
+      "n_included": 1,
+      "transports_hash": "556d9c50d9d7f71aef76e2b538a50f54f112641747a7968831f36d2d603344f8"
+    },
+    "unanimity": {
+      "included_train_ids": [
+        1
+      ],
+      "unanimous_pixels": 81,
+      "total_covered_pixels": 81,
+      "empty_scope_pixels": 0,
+      "unanimity_hash": "0cda3c56ae44e6eb63e82eb6d1df5f7c5116bb26780b6dbac64aad41774246d1",
+      "scope_hash": "38c78427b33fdae267b55a9c1e71a8dfecdd73c39cb80ef056c1d832d89dbd37",
+      "unanimity_grid_hash": "3e96d183a3cb3b1f06c6861344b9657e35c571e6e4f6cc0dcdb67510ef4472b6"
+    },
+    "components": [
+      {
+        "train_id": 0,
+        "num_components": 4,
+        "components_hash": "faeb8f04da96faff38235372cb51579ebc2bab04cd6ab01bf4df4e06b6fe9b52"
+      },
+      {
+        "train_id": 1,
+        "num_components": 2,
+        "components_hash": "65c220001e8d61a646949b74ddf9182c28ebbcab6f0d9fca446fa2d68d13a4ee"
+      },
+      {
+        "train_id": 2,
+        "num_components": 4,
+        "components_hash": "a3617fbf73626882d7dc7771c5b108d4da9c841d6930fbaae2f079a0d74f6301"
+      },
+      {
+        "train_id": 3,
+        "num_components": 2,
+        "components_hash": "19592bc466b07503633789471e13688f34ce1a854b3fc882472fecfea4708639"
+      }
+    ],
+    "witness_learn": [
+      {
+        "train_id": 0,
+        "silent": false,
+        "num_pieces": 4,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "b022277beaf879de0d572407e48da992226283a91aace3f03c385dd9b7df735c"
+      },
+      {
+        "train_id": 1,
+        "silent": false,
+        "num_pieces": 2,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "62be1583bcbf4578ce7911512dbc850a2ddd2548d108a26fbf2baa8fee1cb48b"
+      },
+      {
+        "train_id": 2,
+        "silent": false,
+        "num_pieces": 4,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "a03738c3096b74ee435e8838b5ba88608cebcd195f02706bd852fa2aa1302cb1"
+      },
+      {
+        "train_id": 3,
+        "silent": false,
+        "num_pieces": 2,
+        "sigma_bijection_ok": true,
+        "overlap_conflict": false,
+        "section_hash": "cd323d2d8f9b6981057abb6d70c56e08fdb7018c920a424de20a0476cbc1f97a"
+      }
+    ],
+    "witness_emit": {
+      "inputs": {
+        "R_out": 9,
+        "C_out": 9,
+        "num_trainings": 4,
+        "num_pieces_total": 12
+      },
+      "scopes": {
+        "per_training_scope_bits": [
+          72,
+          42,
+          43,
+          20
+        ],
+        "scope_bits": 72
+      },
+      "admits": {
+        "0": [
+          511,
+          256,
+          383,
+          383,
+          383,
+          375,
+          383,
+          383,
+          383
+        ],
+        "2": [
+          256,
+          511,
+          384,
+          384,
+          384,
+          392,
+          384,
+          384,
+          384
+        ],
+        "3": [
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256
+        ],
+        "4": [
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256
+        ],
+        "8": [
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256,
+          256
+        ],
+        "A_wit_hash": "d1da95b8fb4e9ac7215ce62386f5b7632e571a9e37e83fc87a55bce7ba042737"
+      },
+      "families": {
+        "combined_from_trainings": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "per_training_piece_counts": [
+        4,
+        2,
+        4,
+        2
+      ]
+    },
+    "forbids": {
+      "forbid_symmetric": false,
+      "matrix_hash": "aa80b8329cb78fc0a6bde2d2443196cdafb7c8a4a1eb008753ee3c33652abffd",
+      "edges_count": 288,
+      "colors_with_forbids": [
+        0,
+        2,
+        4
+      ]
+    },
+    "lfp": {
+      "admit_passes": 1,
+      "ac3_passes": 0,
+      "total_admit_prunes": 379,
+      "total_ac3_prunes": 0,
+      "empties": 55,
+      "domains_hash": "81fd041952af86cb800260b3d5a0c76b560bf5ac41b73a01506781082a555913",
+      "section_hash": "17369375bb4f0b6dcf6a6f34d8e3572d3ba5fcff049b82178f8e475dec19f895"
+    },
+    "lfp_status": "UNSAT"
+  },
+  "section_hash": "e569b41dd247493977389746f34788c3515064f164b0ca567731094be0000560"
+}
