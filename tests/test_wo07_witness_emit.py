@@ -99,7 +99,7 @@ def test_simple_identity_emit():
     R_out = len(Yi_raw)
     C_out = len(Yi_raw[0]) if Yi_raw else 0
 
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star,
         [witness_result],
         frames,
@@ -155,7 +155,7 @@ def test_silent_training_admits_all():
     C_out = len(Yi_raw[0]) if Yi_raw else 0
 
     # Emit even if silent
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star,
         [witness_result],
         frames,
@@ -220,7 +220,7 @@ def test_multi_training_scope_union():
     C_out = len(Y1[0]) if Y1 else 0
 
     # Emit
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star,
         witness_results,
         frames,
@@ -293,7 +293,7 @@ def test_conjugation_on_real_task():
     C_out = len(Yi_raw[0]) if Yi_raw else 0
 
     # Emit
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star,
         [witness_result],
         frames,
@@ -353,10 +353,10 @@ def test_determinism():
     C_out = len(Yi_raw[0]) if Yi_raw else 0
 
     # Run twice
-    A_wit_1, S_wit_1 = emit_witness(
+    A_wit_1, S_wit_1, _ = emit_witness(
         X_star, [witness_result], frames, colors_order, R_out, C_out
     )
-    A_wit_2, S_wit_2 = emit_witness(
+    A_wit_2, S_wit_2, _ = emit_witness(
         X_star, [witness_result], frames, colors_order, R_out, C_out
     )
 
@@ -424,7 +424,7 @@ def test_invariants_on_multiple_tasks():
             C_out = len(Yi_raw[0]) if Yi_raw else 0
 
             # Emit
-            A_wit, S_wit = emit_witness(
+            A_wit, S_wit, _ = emit_witness(
                 X_star,
                 [witness_result],
                 frames,

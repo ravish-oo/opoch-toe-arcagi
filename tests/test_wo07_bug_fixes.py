@@ -98,7 +98,7 @@ def test_bug2_explicit_embedding():
 
     # Emit (should handle dimension mismatch gracefully)
     try:
-        A_wit, S_wit = emit_witness(
+        A_wit, S_wit, _ = emit_witness(
             X_star,
             [witness_result],
             frames,
@@ -169,7 +169,7 @@ def test_bug2_with_rotation():
     print(f"Silent: {witness_result['silent']}")
 
     # Emit with rotation
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star,
         [witness_result],
         frames,

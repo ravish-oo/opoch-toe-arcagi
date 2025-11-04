@@ -243,7 +243,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-## WO-07 — Conjugation & Forward Witness Emitter
+## WO-07 — Conjugation & Forward Witness Emitter ✅ COMPLETED
 
 **Goal:** Conjugate pieces into test frame; emit `(A_wit,S_wit)` from `X*` via σ.
 
@@ -265,7 +265,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-### Milestone M3 (after WO-05 + WO-06 + WO-07): “Witness path”
+### Milestone M3 (after WO-05 + WO-06 + WO-07): “Witness path” ✅ COMPLETED
 
 * Wire: `evidence/components`, `emitters/witness_learn`, `emitters/witness_emit`.
 * Runner: enables witness; selection precedence becomes **witness → unanimity → bottom** (no LFP yet).

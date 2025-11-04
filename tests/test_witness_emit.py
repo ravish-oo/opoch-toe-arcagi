@@ -98,7 +98,7 @@ def test_simple_identity_emission():
     R_out, C_out = 2, 2
 
     # Emit witness
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star, witness_results, frames, colors_order, R_out, C_out
     )
 
@@ -158,12 +158,12 @@ def test_silent_training_no_constraint():
     R_out, C_out = 1, 2
 
     # Test with only active training
-    A_wit_single, S_wit_single = emit_witness(
+    A_wit_single, S_wit_single, _ = emit_witness(
         X_star, [witness_result_active], frames, colors_order, R_out, C_out
     )
 
     # Test with active + silent training
-    A_wit_multi, S_wit_multi = emit_witness(
+    A_wit_multi, S_wit_multi, _ = emit_witness(
         X_star,
         [witness_result_active, witness_result_silent],
         frames,
@@ -215,7 +215,7 @@ def test_multi_training_intersection():
     R_out, C_out = 1, 1
 
     # Both trainings have empty pieces → should be silent/admit-all
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star, [witness_result_0, witness_result_1], frames, colors_order, R_out, C_out
     )
 
@@ -258,12 +258,12 @@ def test_emission_determinism():
     R_out, C_out = 2, 2
 
     # Run 1
-    A_wit_1, S_wit_1 = emit_witness(
+    A_wit_1, S_wit_1, _ = emit_witness(
         X_star, witness_results, frames, colors_order, R_out, C_out
     )
 
     # Run 2
-    A_wit_2, S_wit_2 = emit_witness(
+    A_wit_2, S_wit_2, _ = emit_witness(
         X_star, witness_results, frames, colors_order, R_out, C_out
     )
 
@@ -310,7 +310,7 @@ def test_conjugation_with_rotation():
     R_out, C_out = 2, 2
 
     # Emit witness
-    A_wit, S_wit = emit_witness(
+    A_wit, S_wit, _ = emit_witness(
         X_star, witness_results, frames, colors_order, R_out, C_out
     )
 
@@ -334,7 +334,7 @@ def test_empty_trainings():
     R_out, C_out = 1, 1
 
     # Empty trainings
-    A_wit, S_wit = emit_witness(X_star, [], frames, colors_order, R_out, C_out)
+    A_wit, S_wit, _ = emit_witness(X_star, [], frames, colors_order, R_out, C_out)
 
     # Should return zero scope and admit-all
     assert S_wit[0] == 0, "Empty trainings should have zero scope"

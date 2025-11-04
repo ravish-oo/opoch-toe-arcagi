@@ -604,8 +604,18 @@ def choose_working_canvas(
         receipts.put("families_skipped_due_to_area_bound", families_skipped)
         receipts.put("best_area_bound", best_area)
 
-    receipts.put("attempts", attempts)
+    # Store only summary statistics to avoid bloat
+    # Full attempts list can have 100k+ entries for H8/H9
+    # Successful candidates can still be 10k+ for some tasks
+    # Winner is already stored separately, so we don't need individual attempts
+    successful_attempts = [a for a in attempts if a["fit_all"]]
+
+    # Store first 100 successful attempts for debugging (if any)
+    attempts_sample = successful_attempts[:100]
+    receipts.put("attempts_sample", attempts_sample)
+    receipts.put("attempts_sample_note", "First 100 successful candidates (for debugging)")
     receipts.put("total_candidates_checked", len(attempts))
+    receipts.put("successful_candidates", len(successful_attempts))
 
     # Add H8 performance summary (audit coverage)
     receipts.put("attempts_summary", {

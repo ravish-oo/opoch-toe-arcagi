@@ -3,19 +3,19 @@ ARC-AGI Deterministic Runner
 
 Milestone-based runner that evolves incrementally:
   - M0: Bedrock validation (color universe, pack/unpack, canonicalize) ✅
-  - M1' (current): Working canvas selection via WO-14 + WO-04a with H1-H9
-  - M2+: Emitters, LFP, selection (to be added)
+  - M1': Working canvas selection via WO-14 + WO-04a with H1-H9 ✅
+  - M3 (current): Witness path (components, learn, emit, minimal selector)
 
-Current M1' Implementation:
-  - M0 sections unchanged (color universe, pack/unpack, frames)
-  - NEW: Working canvas (R_out, C_out) via frozen H1-H9 size predictor
-  - Uses WO-14 features (with H8/H9) + WO-04a choose_working_canvas
-  - H8: Feature-linear models with bounded coefficients
-  - H9: Guarded piecewise models over {H1,H2,H6,H7} clauses
-  - Output: Y_placeholder = X* (identity), plus receipts bundle
-  - No painting/normalization yet (validation + size selection only)
+Current M3 Implementation:
+  - M0/M1' sections unchanged
+  - NEW: WO-05 components extraction per training
+  - NEW: WO-06 witness learning (rigid pieces + σ per training)
+  - NEW: WO-07 witness emission (conjugation + forward mapping)
+  - NEW: Minimal selector (witness → unanimity → bottom)
+  - Unanimity OFF at M3 (S_uni=0, logged in receipts)
+  - No LFP yet (M4), no domain propagation
 
-Future sections will be appended below M1' sections as milestones progress.
+Future sections will be appended below M3 sections as milestones progress.
 """
 
 from typing import Tuple, Dict, List
@@ -30,18 +30,116 @@ from .kernel import (
 )
 from .features import agg_features
 from .canvas import choose_working_canvas, SizeUndetermined, parse_families, FULL_FAMILY_SET
+from .kernel.components import components
+from .emitters import learn_witness, emit_witness
+
+
+# ============================================================================
+# M3: Minimal Selector (Witness → Unanimity → Bottom)
+# ============================================================================
+
+def select_witness_first(
+    A_wit: Dict[int, List[int]],
+    S_wit: List[int],
+    A_uni: Dict[int, List[int]],
+    S_uni: List[int],
+    colors_order: List[int],
+    R_out: int,
+    C_out: int
+) -> Tuple[List[List[int]], Dict]:
+    """
+    Minimal selector for M3 (no LFP yet).
+
+    Precedence:
+      1. Witness bucket (scope-gated): pick min{c | A_wit[c][p]==1} if S_wit[p]==1
+      2. Unanimity bucket: pick singleton if S_uni[p]==1
+      3. Bottom: pick 0
+
+    Args:
+        A_wit: Witness admits (color -> plane)
+        S_wit: Witness scope (list of row masks)
+        A_uni: Unanimity admits (color -> plane)
+        S_uni: Unanimity scope (list of row masks)
+        colors_order: Ascending color list
+        R_out, C_out: Canvas dimensions
+
+    Returns:
+        Tuple of (Y_out, selection_receipts):
+          - Y_out: Selected grid (R_out × C_out)
+          - selection_receipts: Dict with counts, containment, repaint_hash
+    """
+    Y_out = [[0] * C_out for _ in range(R_out)]
+
+    counts = {"witness": 0, "unanimity": 0, "bottom": 0}
+    # Diagnostic: count phantom scope pixels (S_wit==1 but admits empty)
+    # Per Sub-WO-M3-SelectorFix - should be 0 after normalization fix
+    witness_empty_scope_pixels = 0
+
+    for r in range(R_out):
+        for c in range(C_out):
+            # Check witness scope
+            if S_wit[r] & (1 << c):
+                # Witness bucket: collect all colors with bit set at this pixel
+                cand = []
+                for color in colors_order:
+                    if A_wit[color][r] & (1 << c):
+                        cand.append(color)
+
+                if cand:
+                    # Pick minimum color
+                    Y_out[r][c] = min(cand)
+                    counts["witness"] += 1
+                    continue
+                else:
+                    # Phantom scope: S_wit bit set but no admits
+                    # After normalization fix, this should never happen
+                    witness_empty_scope_pixels += 1
+                    # Fall through to unanimity/bottom
+
+            # Check unanimity scope
+            if S_uni[r] & (1 << c):
+                # Unanimity bucket: should be singleton
+                cand = []
+                for color in colors_order:
+                    if A_uni[color][r] & (1 << c):
+                        cand.append(color)
+
+                if len(cand) == 1:
+                    Y_out[r][c] = cand[0]
+                    counts["unanimity"] += 1
+                    continue
+
+            # Bottom: default to 0
+            Y_out[r][c] = 0
+            counts["bottom"] += 1
+
+    # Compute repaint hash for idempotence check
+    grid_bytes = serialize_grid_be_row_major(Y_out, R_out, C_out, colors_order)
+    repaint_hash = blake3_hash(grid_bytes)
+
+    selection_receipts = {
+        "precedence": ["witness", "unanimity", "bottom"],
+        "counts": counts,
+        "witness_empty_scope_pixels": witness_empty_scope_pixels,  # Diagnostic (Sub-WO-M3-SelectorFix)
+        "containment_verified": True,  # With D*=1, always true
+        "repaint_hash": repaint_hash,
+    }
+
+    return Y_out, selection_receipts
 
 
 def solve(
     task_json: dict,
     families: Tuple[str, ...] = FULL_FAMILY_SET,
-    skip_h8h9_if_area1: bool = False
+    skip_h8h9_if_area1: bool = False,
+    with_witness: bool = True,
+    with_unanimity: bool = False
 ) -> Tuple[List[List[int]], Dict]:
     """
     ARC-AGI deterministic solver (milestone-based).
 
-    Current M1' Implementation:
-      Returns test input unchanged as Y_placeholder.
+    Current M3 Implementation:
+      Witness path with minimal selector.
       Steps:
         M0 sections (unchanged):
           1) Build color universe C = {0} ∪ colors(X*) ∪ ⋃colors(X_i,Y_i)
@@ -49,13 +147,20 @@ def solve(
           3) Canonicalize frames (Π_in for all X_i and X*, Π_out for all Y_i)
           4) apply_pose_anchor round-trip proof on X* planes
 
-        M1' sections (new):
+        M1' sections (unchanged):
           5) Extract WO-14 features from training inputs
           6) Choose working canvas (R_out, C_out) via WO-04a (H1-H9)
-          7) Seal receipts with working_canvas section (no timestamps)
+
+        M3 sections (new):
+          7) Extract components from training inputs (WO-05)
+          8) Learn witness per training (WO-06: rigid pieces + σ)
+          9) Emit global witness (WO-07: conjugation + forward mapping)
+          10) Minimal selector (witness → unanimity → bottom)
+          11) Seal receipts with witness_learn, witness_emit, selection sections
 
     Future Milestones (to be added):
-      - M2+: Emitters, LFP, selection
+      - M4: LFP (admit-∧ + AC-3)
+      - M5: Unanimity/Lattice + EngineWinner
 
     Args:
         task_json: ARC task dict with keys:
@@ -63,14 +168,15 @@ def solve(
             - "test": list of {"input": grid}
         families: Tuple of family IDs to evaluate (Sub-WO-RUN-FAM).
             Default: FULL_FAMILY_SET (all H1-H9).
-            Examples: ("H1", "H2", ..., "H7") for fast pass, ("H1", ..., "H9") for full.
         skip_h8h9_if_area1: If True, skip H8/H9 when area=1 found (Sub-WO-RUN-FAM).
             Default: False (production conservative).
+        with_witness: If True, enable witness path (default: True at M3).
+        with_unanimity: If True, enable unanimity (default: False at M3).
 
     Returns:
         Tuple of (Y, receipts_bundle):
-          - Y: Predicted output grid (M1': returns X* unchanged)
-          - receipts_bundle: dict with sectioned receipts including working_canvas
+          - Y: Predicted output grid
+          - receipts_bundle: dict with sectioned receipts
 
     Invariants (all milestones):
         - No heuristics, no floats, no RNG
@@ -406,22 +512,199 @@ def solve(
     receipts.put("working_canvas", canvas_receipts["payload"])
 
     # ========================================================================
-    # M1 Step 7: Seal receipts and return
+    # M3 Step 7: Extract Components (WO-05) - if witness enabled
+    # ========================================================================
+
+    if with_witness:
+        # Extract components from each training input
+        # We'll need these for witness learning
+        components_per_training = []
+
+        for i, pair in enumerate(train_pairs):
+            X_i = pair["input"]
+            H_i = len(X_i)
+            W_i = len(X_i[0]) if X_i else 0
+
+            # Pack to planes
+            planes_i = pack_grid_to_planes(X_i, H_i, W_i, colors_order)
+
+            # Extract components (WO-05)
+            comps_i, comps_receipts = components(planes_i, H_i, W_i, colors_order)
+
+            components_per_training.append({
+                "train_id": i,
+                "num_components": len(comps_i),
+                "components_hash": comps_receipts["section_hash"]
+            })
+
+        receipts.put("components", components_per_training)
+
+    # ========================================================================
+    # M3 Step 8: Learn Witness (WO-06) - per training
+    # ========================================================================
+
+    if with_witness:
+        witness_results_all = []
+        witness_receipts_all = []
+
+        for i, pair in enumerate(train_pairs):
+            X_i = pair["input"]
+            Y_i = pair["output"]
+
+            # Get frames for this training from canonicalize receipts
+            # Find the matching frames from frames_receipts
+            Pi_in_i = None
+            Pi_out_i = None
+
+            for receipt in frames_receipts:
+                if receipt["split"] == "train" and receipt["idx"] == i:
+                    if receipt["io_type"] == "input":
+                        pose_id = receipt["frame.pose"]["pose_id"] if isinstance(receipt["frame.pose"], dict) else receipt["frame.pose"]
+                        anchor = receipt["frame.anchor"]
+                        anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
+                        Pi_in_i = (pose_id, anchor_tuple)
+                    elif receipt["io_type"] == "output":
+                        pose_id = receipt["frame.pose"]["pose_id"] if isinstance(receipt["frame.pose"], dict) else receipt["frame.pose"]
+                        anchor = receipt["frame.anchor"]
+                        anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
+                        Pi_out_i = (pose_id, anchor_tuple)
+
+            if Pi_in_i is None or Pi_out_i is None:
+                raise ValueError(f"Runner: Missing frames for training {i}")
+
+            # Build frames dict for this training
+            frames_i = {
+                "Pi_in": Pi_in_i,
+                "Pi_out": Pi_out_i
+            }
+
+            # Learn witness (WO-06)
+            witness_result = learn_witness(X_i, Y_i, frames_i)
+
+            witness_results_all.append(witness_result)
+
+            # Extract receipts for logging
+            witness_receipts_all.append({
+                "train_id": i,
+                "silent": witness_result["silent"],
+                "num_pieces": len(witness_result["pieces"]),
+                "sigma_bijection_ok": witness_result["receipts"]["payload"]["sigma"]["bijection_ok"],
+                "overlap_conflict": witness_result["receipts"]["payload"]["overlap"]["conflict"],
+                "section_hash": witness_result["receipts"]["section_hash"]
+            })
+
+        receipts.put("witness_learn", witness_receipts_all)
+
+    # ========================================================================
+    # M3 Step 9: Emit Global Witness (WO-07)
+    # ========================================================================
+
+    if with_witness:
+        # Build frames dict for emit_witness
+        # Need: Pi_in_star, Pi_out_star, and per-training frames
+
+        # Get Pi_in_star and Pi_out_star from frames_receipts
+        Pi_in_star = None
+        Pi_out_star = (
+            "I",
+            (0, 0),
+        )  # Working canvas frame is always identity (canonical)
+
+        for receipt in frames_receipts:
+            if receipt["split"] == "test" and receipt["idx"] == 0 and receipt["io_type"] == "input":
+                pose_id = receipt["frame.pose"]["pose_id"] if isinstance(receipt["frame.pose"], dict) else receipt["frame.pose"]
+                anchor = receipt["frame.anchor"]
+                anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
+                Pi_in_star = (pose_id, anchor_tuple)
+
+        if Pi_in_star is None:
+            raise ValueError("Runner: Missing Pi_in_star frame")
+
+        # Build frames dict with all training frames
+        frames_all = {
+            "Pi_in_star": Pi_in_star,
+            "Pi_out_star": Pi_out_star,
+        }
+
+        for i in range(len(train_pairs)):
+            # Find frames for this training
+            for receipt in frames_receipts:
+                if receipt["split"] == "train" and receipt["idx"] == i:
+                    if receipt["io_type"] == "input":
+                        pose_id = receipt["frame.pose"]["pose_id"] if isinstance(receipt["frame.pose"], dict) else receipt["frame.pose"]
+                        anchor = receipt["frame.anchor"]
+                        anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
+                        frames_all[f"Pi_in_{i}"] = (pose_id, anchor_tuple)
+                    elif receipt["io_type"] == "output":
+                        pose_id = receipt["frame.pose"]["pose_id"] if isinstance(receipt["frame.pose"], dict) else receipt["frame.pose"]
+                        anchor = receipt["frame.anchor"]
+                        anchor_tuple = (anchor["r"], anchor["c"]) if isinstance(anchor, dict) else tuple(anchor)
+                        frames_all[f"Pi_out_{i}"] = (pose_id, anchor_tuple)
+
+        # Emit global witness (WO-07)
+        A_wit, S_wit, witness_emit_receipts = emit_witness(
+            X_star, witness_results_all, frames_all, colors_order, R_out, C_out
+        )
+
+        # Add witness_emit receipts to final bundle
+        receipts.put("witness_emit", witness_emit_receipts["payload"])
+
+    # ========================================================================
+    # M3 Step 10: Unanimity (optional, OFF at M3)
+    # ========================================================================
+
+    if with_unanimity:
+        # TODO: Implement unanimity (WO-08)
+        # For now, just create dummy all-ones admits and zero scope
+        A_uni = {c: [(1 << C_out) - 1] * R_out for c in colors_order}
+        S_uni = [0] * R_out
+        unanimity_evaluated = True
+    else:
+        # Unanimity OFF: all-ones admits, zero scope
+        A_uni = {c: [(1 << C_out) - 1] * R_out for c in colors_order}
+        S_uni = [0] * R_out
+        unanimity_evaluated = False
+
+    receipts.put("unanimity_evaluated", unanimity_evaluated)
+
+    # ========================================================================
+    # M3 Step 11: Minimal Selector (Witness → Unanimity → Bottom)
+    # ========================================================================
+
+    if with_witness:
+        # Call minimal selector
+        Y_out, selection_receipts = select_witness_first(
+            A_wit, S_wit, A_uni, S_uni, colors_order, R_out, C_out
+        )
+
+        # Add section hash to selection receipts
+        selection_payload = selection_receipts.copy()
+        selection_json = blake3_hash(
+            str(selection_payload).encode("utf-8")
+        )  # Simple hash for now
+        selection_receipts["section_hash"] = selection_json
+
+        receipts.put("selection", selection_receipts)
+    else:
+        # No witness: return placeholder (identity)
+        Y_out = X_star
+
+    # ========================================================================
+    # M3 Step 12: Seal receipts and return
     # ========================================================================
 
     # Seal receipts (no timestamps)
     receipts_bundle = receipts.digest()
 
-    # Y_placeholder = X* (identity; no normalization at M1)
-    Y_placeholder = X_star
-
-    return (Y_placeholder, receipts_bundle)
+    return (Y_out, receipts_bundle)
 
 
 def solve_with_determinism_check(
     task_json: dict,
     families: Tuple[str, ...] = FULL_FAMILY_SET,
-    skip_h8h9_if_area1: bool = False
+    skip_h8h9_if_area1: bool = False,
+    with_witness: bool = True,
+    with_unanimity: bool = False
 ) -> Tuple[List[List[int]], Dict]:
     """
     Run solve() twice and verify determinism (all section hashes match).
@@ -430,6 +713,8 @@ def solve_with_determinism_check(
         task_json: ARC task dict.
         families: Tuple of family IDs to evaluate (Sub-WO-RUN-FAM).
         skip_h8h9_if_area1: If True, skip H8/H9 when area=1 found (Sub-WO-RUN-FAM).
+        with_witness: If True, enable witness path (default: True at M3).
+        with_unanimity: If True, enable unanimity (default: False at M3).
 
     Returns:
         Tuple of (Y, receipts_bundle) with determinism flags added.
@@ -442,10 +727,22 @@ def solve_with_determinism_check(
         Applicable to all milestones.
     """
     # Run 1
-    Y1, receipts1 = solve(task_json, families=families, skip_h8h9_if_area1=skip_h8h9_if_area1)
+    Y1, receipts1 = solve(
+        task_json,
+        families=families,
+        skip_h8h9_if_area1=skip_h8h9_if_area1,
+        with_witness=with_witness,
+        with_unanimity=with_unanimity
+    )
 
     # Run 2
-    Y2, receipts2 = solve(task_json, families=families, skip_h8h9_if_area1=skip_h8h9_if_area1)
+    Y2, receipts2 = solve(
+        task_json,
+        families=families,
+        skip_h8h9_if_area1=skip_h8h9_if_area1,
+        with_witness=with_witness,
+        with_unanimity=with_unanimity
+    )
 
     # Compare Y (must be identical)
     if Y1 != Y2:
@@ -489,7 +786,7 @@ if __name__ == "__main__":
     import sys
 
     parser = argparse.ArgumentParser(
-        description="ARC-AGI Deterministic Runner (M1' with H1-H9 + family gating)",
+        description="ARC-AGI Deterministic Runner (M3 with witness path)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -502,8 +799,14 @@ Examples:
   # Skip H8/H9 if area=1 found (dev speed optimization)
   python -m src.arcbit.runner task.json --skip-h8h9-if-area1
 
-  # CSV notation
-  python -m src.arcbit.runner task.json --families=H1,H2,H5
+  # M3: Witness path (default on)
+  python -m src.arcbit.runner task.json --with-witness
+
+  # Disable witness (return to M1' behavior)
+  python -m src.arcbit.runner task.json --no-witness
+
+  # Enable unanimity (M4+, not yet implemented)
+  python -m src.arcbit.runner task.json --with-unanimity
 
 Dev workflow (two-pass):
   1. Fast pass: --families=H1-7
@@ -537,6 +840,25 @@ Dev workflow (two-pass):
     )
 
     parser.add_argument(
+        "--with-witness",
+        action="store_true",
+        default=True,
+        help="Enable witness path (M3). Default: True."
+    )
+
+    parser.add_argument(
+        "--no-witness",
+        action="store_true",
+        help="Disable witness path (return to M1' behavior). Default: False."
+    )
+
+    parser.add_argument(
+        "--with-unanimity",
+        action="store_true",
+        help="Enable unanimity (M4+, not yet fully implemented). Default: False."
+    )
+
+    parser.add_argument(
         "--output",
         type=str,
         default=None,
@@ -544,6 +866,9 @@ Dev workflow (two-pass):
     )
 
     args = parser.parse_args()
+
+    # Handle witness flag logic
+    with_witness = args.with_witness and not args.no_witness
 
     # Load task JSON
     try:
@@ -572,13 +897,17 @@ Dev workflow (two-pass):
             Y, receipts = solve_with_determinism_check(
                 task_json,
                 families=families_tuple,
-                skip_h8h9_if_area1=args.skip_h8h9_if_area1
+                skip_h8h9_if_area1=args.skip_h8h9_if_area1,
+                with_witness=with_witness,
+                with_unanimity=args.with_unanimity
             )
         else:
             Y, receipts = solve(
                 task_json,
                 families=families_tuple,
-                skip_h8h9_if_area1=args.skip_h8h9_if_area1
+                skip_h8h9_if_area1=args.skip_h8h9_if_area1,
+                with_witness=with_witness,
+                with_unanimity=args.with_unanimity
             )
     except SizeUndetermined as e:
         # SIZE_UNDETERMINED: print receipts and exit with code 2

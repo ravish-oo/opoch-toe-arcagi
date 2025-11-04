@@ -206,7 +206,7 @@ def test_h5_period_based():
     payload = receipts["payload"]
     # H4 should fit since both outputs are 4×4
     # But let's just verify H5 does fit
-    h5_fits = [a for a in payload["attempts"] if a["family"] == "H5" and a["fit_all"]]
+    h5_fits = [a for a in payload["attempts_sample"] if a["family"] == "H5" and a["fit_all"]]
     assert len(h5_fits) > 0, "H5 should fit at least once"
 
     # Since outputs are constant 4×4, H4 will win (earlier in family order)
@@ -366,7 +366,8 @@ def test_receipts_structure():
     assert "num_trainings" in payload
     assert "features_hash_per_training" in payload
     assert "test_input_shape" in payload
-    assert "attempts" in payload
+    assert "attempts_sample" in payload  # Changed from "attempts" to avoid bloat
+    assert "successful_candidates" in payload
     assert "total_candidates_checked" in payload
     assert "winner" in payload
     assert "R_out" in payload
@@ -380,8 +381,8 @@ def test_receipts_structure():
     assert "params" in winner
     assert "test_area" in winner
 
-    # Attempts structure
-    attempts = payload["attempts"]
+    # Attempts structure (sample only to avoid bloat)
+    attempts = payload["attempts_sample"]
     assert len(attempts) > 0
     for att in attempts[:5]:
         assert "family" in att

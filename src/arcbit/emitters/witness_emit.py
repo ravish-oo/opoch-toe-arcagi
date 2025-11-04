@@ -26,7 +26,7 @@ def emit_witness(
     colors_order: List[int],
     R_out: int,
     C_out: int,
-) -> Tuple[Dict[int, List[int]], List[int]]:
+) -> Tuple[Dict[int, List[int]], List[int], Dict]:
     """
     Conjugate witness pieces and forward-emit test input to working canvas.
 
@@ -40,6 +40,7 @@ def emit_witness(
     Returns:
         A_wit: Dict color -> plane (scope-gated intersection)
         S_wit: Scope mask (union of all training scopes)
+        receipts_bundle: Dict with section_hash and payload per WO-07
     """
     receipts = Receipts("witness_emit")
     receipts.put("inputs", {
@@ -88,6 +89,18 @@ def emit_witness(
         per_training_emitters, colors_order, R_out, C_out
     )
 
+    # Step 3: Normalize global scope - remove admit-none pixels (phantom scope)
+    # After intersection, some pixels may have S_wit[p]==1 but ∀c: A_wit[c][p]==0
+    # These "phantom scope" bits must be cleared (Sub-WO-M3-SelectorFix)
+    for r in range(R_out):
+        for c_bit in range(C_out):
+            bit = 1 << c_bit
+            # Check if ANY color admits this pixel
+            has_any_color = any(A_wit[c][r] & bit for c in colors_order)
+            if not has_any_color:
+                # Clear phantom scope bit - no color actually admitted here
+                S_wit[r] &= ~bit
+
     # Generate receipts
     receipts.put("scopes", {
         "per_training_scope_bits": per_training_scope_bits,
@@ -95,6 +108,7 @@ def emit_witness(
     })
 
     receipts.put("admits", {
+        **{str(c): A_wit[c] for c in colors_order if c in A_wit},  # Actual color planes
         "A_wit_hash": _hash_planes(A_wit, R_out, C_out, colors_order),
     })
 
@@ -105,11 +119,10 @@ def emit_witness(
     # Optional nice-to-have audit fields
     receipts.put("per_training_piece_counts", per_training_piece_counts)
 
-    # Note: receipts.digest() is called but result not returned per WO-07 interface
-    # Receipts are logged internally for audit trail
-    _ = receipts.digest()
+    # Generate receipts bundle per WO-07 spec
+    receipts_bundle = receipts.digest()
 
-    return A_wit, S_wit
+    return A_wit, S_wit, receipts_bundle
 
 
 # ============================================================================
