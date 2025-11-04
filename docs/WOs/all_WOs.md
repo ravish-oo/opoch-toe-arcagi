@@ -301,7 +301,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-## WO-09 — Lattice Emitter (exact periodic admits)
+## WO-09 — Lattice Emitter (exact periodic admits) ✅ COMPLETED
 
 **Goal:** Emit residue admits where **all trainings** agree.
 
