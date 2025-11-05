@@ -24,6 +24,7 @@ class LFPStats(TypedDict):
     singleton_pixels: int       # pixels with exactly 1 color in domain
     multi_pixels: int           # pixels with >1 colors in domain
     empty_pixels: int           # pixels with 0 colors (alias for empties for clarity)
+    lfp_prunes_by_family: Dict[str, int]  # prunes contributed by each family (T1, T2, T3, ...)
     domains_hash: str           # BLAKE3 of final domain tensor
     section_hash: str
 
@@ -106,6 +107,7 @@ def lfp_propagate(
     total_admit_prunes = 0
     total_ac3_prunes = 0
     empties = 0
+    prunes_by_family: Dict[str, int] = {}
 
     # Monotone loop
     for iter_idx in range(1, MAX_PROPAGATION_ITERATIONS + 1):
@@ -124,9 +126,13 @@ def lfp_propagate(
                 continue
 
             # Scope-gated intersect
-            admit_prunes_this += _admit_intersect(
+            family_prunes = _admit_intersect(
                 D, A, S, colors_order, R_out, C_out
             )
+            admit_prunes_this += family_prunes
+
+            # Track prunes by family (accumulate across all iterations)
+            prunes_by_family[family] = prunes_by_family.get(family, 0) + family_prunes
 
         admit_passes += 1
         total_admit_prunes += admit_prunes_this
@@ -137,7 +143,7 @@ def lfp_propagate(
         if empties > 0:
             return "UNSAT", _seal_stats(
                 admit_passes, ac3_passes, total_admit_prunes,
-                total_ac3_prunes, empties, D, R_out, C_out, colors_order
+                total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order
             )
 
         # (2) AC-3 prune (if forbids present)
@@ -153,20 +159,20 @@ def lfp_propagate(
             if empties > 0:
                 return "UNSAT", _seal_stats(
                     admit_passes, ac3_passes, total_admit_prunes,
-                    total_ac3_prunes, empties, D, R_out, C_out, colors_order
+                    total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order
                 )
 
         # Fixed point?
         if not changed:
             return D, _seal_stats(
                 admit_passes, ac3_passes, total_admit_prunes,
-                total_ac3_prunes, 0, D, R_out, C_out, colors_order
+                total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order
             )
 
     # Cap guard
     return "FIXED_POINT_NOT_REACHED", _seal_stats(
         admit_passes, ac3_passes, total_admit_prunes,
-        total_ac3_prunes, 0, D, R_out, C_out, colors_order
+        total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order
     )
 
 
@@ -284,6 +290,7 @@ def _seal_stats(
     total_admit_prunes: int,
     total_ac3_prunes: int,
     empties: int,
+    prunes_by_family: Dict[str, int],
     D: Dict[Tuple[int, int], int],
     R_out: int,
     C_out: int,
@@ -294,6 +301,7 @@ def _seal_stats(
 
     Args:
         admit_passes, ac3_passes, total_admit_prunes, total_ac3_prunes, empties: Stats
+        prunes_by_family: Dict mapping family names to total prunes
         D: Final domain tensor
         R_out, C_out: Canvas dimensions
         colors_order: Color order for hash canonicality
@@ -321,7 +329,8 @@ def _seal_stats(
     domains_hash = _hash_domains(D, R_out, C_out, colors_order)
     section_hash = _hash_lfp_stats(
         admit_passes, ac3_passes, total_admit_prunes,
-        total_ac3_prunes, empties, singleton_pixels, multi_pixels, empty_pixels, domains_hash
+        total_ac3_prunes, empties, singleton_pixels, multi_pixels, empty_pixels,
+        prunes_by_family, domains_hash
     )
 
     return LFPStats(
@@ -333,6 +342,7 @@ def _seal_stats(
         singleton_pixels=singleton_pixels,
         multi_pixels=multi_pixels,
         empty_pixels=empty_pixels,
+        lfp_prunes_by_family=prunes_by_family,
         domains_hash=domains_hash,
         section_hash=section_hash
     )
@@ -387,11 +397,16 @@ def _hash_lfp_stats(
     singleton_pixels: int,
     multi_pixels: int,
     empty_pixels: int,
+    prunes_by_family: Dict[str, int],
     domains_hash: str
 ) -> str:
     """Hash LFP stats in deterministic order."""
+    # Serialize prunes_by_family deterministically (sorted by key)
+    family_str = ",".join(f"{k}:{v}" for k, v in sorted(prunes_by_family.items()))
+
     stats_str = (
         f"{admit_passes},{ac3_passes},{total_admit_prunes},"
-        f"{total_ac3_prunes},{empties},{singleton_pixels},{multi_pixels},{empty_pixels},{domains_hash}"
+        f"{total_ac3_prunes},{empties},{singleton_pixels},{multi_pixels},{empty_pixels},"
+        f"{family_str},{domains_hash}"
     )
     return blake3_hash(stats_str.encode("utf-8"))

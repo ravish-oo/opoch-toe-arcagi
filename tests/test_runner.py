@@ -99,9 +99,10 @@ def test_m0_basic():
     assert apply_receipt["equivalence_ok"] == True, "apply_pose_anchor equivalence failed"
     assert apply_receipt["hash_equal"] == True, "apply_pose_anchor hash mismatch"
 
-    # Verify M2 selection receipts
+    # Verify M4.5 selection receipts (domain-driven)
     selection = r["selection"]
-    assert selection["precedence"] == ["unanimity", "bottom"], "M2 precedence must be [unanimity, bottom]"
+    assert selection["precedence"] == ["domain_singleton", "domain_multi_min", "bottom"], \
+        "M4.5 precedence must be domain-driven"
     assert "counts" in selection, "Selection must have counts"
     assert "repaint_hash" in selection, "Selection must have repaint_hash"
 
