@@ -1042,6 +1042,10 @@ def solve(
     receipts.put("lfp", lfp_stats)
     receipts.put("lfp_status", "SUCCESS")
 
+    # Add emitters_evaluated receipt (instrumentation for verifying T3 was in LFP pass)
+    emitters_evaluated = [family for family, _, _ in emitters_list]
+    receipts.put("emitters_evaluated", emitters_evaluated)
+
     # ========================================================================
     # M4.5 Step 4: Domain-Driven Selector (reads D_star from LFP)
     # ========================================================================

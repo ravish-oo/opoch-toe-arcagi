@@ -15,8 +15,12 @@ from ..kernel.planes import pack_grid_to_planes
 
 class LatticeReceipt(TypedDict):
     included_train_ids: List[int]
-    p_r: Optional[int]  # proper minimal period ≥2 if present, else None
-    p_c: Optional[int]
+    p_r: Optional[int]  # proper minimal period ≥2 if present, else None (kept for backward compat)
+    p_c: Optional[int]  # kept for backward compat
+    per_training_periods: List[Dict]  # [{"train_id": i, "p_r": ..., "p_c": ...}, ...]
+    global_p_r: Optional[int]  # same as p_r (clearer naming)
+    global_p_c: Optional[int]  # same as p_c (clearer naming)
+    global_validated: bool  # true if agreeing_classes non-empty
     agreeing_classes: List[Tuple[int, int]]  # residue pairs (i,j) where all agree
     disagreeing_classes: List[Tuple[int, int]]  # residue pairs with disagreement
     residue_scope_bits: int  # popcount of S_lat
@@ -62,6 +66,10 @@ def emit_lattice(
             included_train_ids=[],
             p_r=None,
             p_c=None,
+            per_training_periods=[],
+            global_p_r=None,
+            global_p_c=None,
+            global_validated=False,
             agreeing_classes=[],
             disagreeing_classes=[],
             residue_scope_bits=0,
@@ -79,7 +87,9 @@ def emit_lattice(
         Y_list.append(Y_i)
 
     # Step 2: Detect global 2D period across all trainings
-    p_r, p_c = _aggregate_periods(Y_list, R_out, C_out, colors_order)
+    p_r, p_c, per_training_periods_list = _aggregate_periods(
+        Y_list, included_train_ids, R_out, C_out, colors_order
+    )
 
     # If no global period → silent layer
     if p_r is None and p_c is None:
@@ -89,6 +99,10 @@ def emit_lattice(
             included_train_ids=included_train_ids,
             p_r=None,
             p_c=None,
+            per_training_periods=per_training_periods_list,
+            global_p_r=None,
+            global_p_c=None,
+            global_validated=False,
             agreeing_classes=[],
             disagreeing_classes=[],
             residue_scope_bits=0,
@@ -107,11 +121,16 @@ def emit_lattice(
     residue_scope_bits = _popcount_scope(S_lat)
     A_lat_hash = _hash_planes(A_lat, R_out, C_out, colors_order)
     S_lat_hash = _hash_scope(S_lat, C_out)
+    global_validated = len(agreeing_classes) > 0
 
     receipt = LatticeReceipt(
         included_train_ids=included_train_ids,
         p_r=p_r,
         p_c=p_c,
+        per_training_periods=per_training_periods_list,
+        global_p_r=p_r,
+        global_p_c=p_c,
+        global_validated=global_validated,
         agreeing_classes=agreeing_classes,
         disagreeing_classes=disagreeing_classes,
         residue_scope_bits=residue_scope_bits,
@@ -179,10 +198,11 @@ def _reconstruct_grid_from_planes(
 
 def _aggregate_periods(
     Y_list: List[List[List[int]]],
+    included_train_ids: List[int],
     R_out: int,
     C_out: int,
     colors_order: List[int]
-) -> Tuple[Optional[int], Optional[int]]:
+) -> Tuple[Optional[int], Optional[int], List[Dict]]:
     """
     Aggregate global 2D period across all trainings.
 
@@ -192,8 +212,12 @@ def _aggregate_periods(
 
     Args:
         Y_list: Per-training integer grids
+        included_train_ids: Training IDs (for receipt)
         R_out, C_out: Canvas dimensions
         colors_order: GLOBAL color order (must be consistent across all trainings)
+
+    Returns:
+        (p_r, p_c, per_training_periods_list)
 
     Spec: WO-09 v1.6 section 1
 
@@ -201,8 +225,9 @@ def _aggregate_periods(
     consistent K-tuple interpretation in period detection.
     """
     per_training_periods = []
+    per_training_periods_receipt = []
 
-    for Y_i in Y_list:
+    for idx, Y_i in enumerate(Y_list):
         # Pack grid to planes using GLOBAL colors_order
         # This ensures consistent K-tuple interpretation across trainings
         planes_i = pack_grid_to_planes(Y_i, R_out, C_out, colors_order)
@@ -210,6 +235,13 @@ def _aggregate_periods(
         # Run WO-02 period detection (proper periods ≥2 or None)
         p_r_i, p_c_i, _ = period_2d_planes(planes_i, R_out, C_out, colors_order)
         per_training_periods.append((p_r_i, p_c_i))
+
+        # Build receipt entry
+        per_training_periods_receipt.append({
+            "train_id": included_train_ids[idx],
+            "p_r": p_r_i,
+            "p_c": p_c_i
+        })
 
     # Aggregate row periods
     row_periods = [p[0] for p in per_training_periods]
@@ -219,7 +251,7 @@ def _aggregate_periods(
     col_periods = [p[1] for p in per_training_periods]
     p_c = _aggregate_axis_period(col_periods)
 
-    return p_r, p_c
+    return p_r, p_c, per_training_periods_receipt
 
 
 def _aggregate_axis_period(periods: List[Optional[int]]) -> Optional[int]:
