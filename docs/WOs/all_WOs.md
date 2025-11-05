@@ -366,7 +366,7 @@ refer to docs/WOs/WO-04a-H8H9.md
 
 ---
 
-### Milestone M4 (after WO-10 + WO-11): “True LFP”
+### Milestone M4 (after WO-10 + WO-11): “True LFP” ✅ COMPLETED
 
 * Wire: `constraints/forbids` (can return None), `constraints/ac3`, `propagation/lfp`.
 * Runner: domains init → admit-∧ (witness, output, unanimity) → AC-3 → fixed point → selection.

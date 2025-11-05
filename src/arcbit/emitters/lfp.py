@@ -29,8 +29,12 @@ class LFPStats(TypedDict, total=False):
     domains_hash: str           # BLAKE3 of final domain tensor
     section_hash: str
 
-    # Optional debug field (only when debug_arrays=True)
+    # Optional debug fields (only when debug_arrays=True)
     D_star_planes_bytes: str  # hex-encoded bytes: D* as K planes (one per color)
+    lfp_admit_mismatches: List[Dict]  # singleton admit intersection failures
+    lfp_monotone_violation_family: Dict  # if any family re-added bits (non-monotone)
+    lfp_monotone_violation_ac3: Dict  # if AC-3 re-added bits (non-monotone)
+    lfp_timeline: List[Dict]  # domain evolution timeline for watched pixels
 
 
 # Frozen defaults (spec WO-11 v1.6)
@@ -114,12 +118,27 @@ def lfp_propagate(
     empties = 0
     prunes_by_family: Dict[str, int] = {}
 
+    # Debug: singleton admit mismatch tracking
+    lfp_admit_mismatches: List[Dict] = [] if debug_arrays else []
+
+    # Debug: monotonicity and timeline tracking
+    STRICT_MONOTONE_CHECK = debug_arrays
+    lfp_monotone_violation_family: Optional[Dict] = None
+    lfp_monotone_violation_ac3: Optional[Dict] = None
+    lfp_timeline: List[Dict] = [] if debug_arrays else []
+    # Optional watch list (for now, empty - can be populated later via input)
+    WATCH_PIXELS: List[Tuple[int, int]] = []
+
     # Monotone loop
     for iter_idx in range(1, MAX_PROPAGATION_ITERATIONS + 1):
         changed = False
 
         # (1) Admit pass in frozen family order
         admit_prunes_this = 0
+
+        # Debug: snapshot before first family in this iteration
+        if STRICT_MONOTONE_CHECK:
+            D_before_family = D.copy()
 
         for family, A, S in emitters_ordered:
             # Skip T10_forbids (not an admit layer)
@@ -132,12 +151,50 @@ def lfp_propagate(
 
             # Scope-gated intersect
             family_prunes = _admit_intersect(
-                D, A, S, colors_order, R_out, C_out
+                D, A, S, colors_order, R_out, C_out,
+                family=family,
+                debug_arrays=debug_arrays,
+                mismatches=lfp_admit_mismatches if debug_arrays else None
             )
             admit_prunes_this += family_prunes
 
             # Track prunes by family (accumulate across all iterations)
             prunes_by_family[family] = prunes_by_family.get(family, 0) + family_prunes
+
+            # Debug: Check monotonicity after this family
+            if STRICT_MONOTONE_CHECK and family_prunes >= 0:
+                # Assert D did not grow at any pixel during this family
+                grew_bits = []
+                for (rr, cc), mask_after in D.items():
+                    mask_before = D_before_family.get((rr, cc), mask_after)
+                    # Check if any bits were added: (mask_after | mask_before) != mask_before
+                    if (mask_after | mask_before) != mask_before:
+                        grew_bits.append({
+                            "r": rr,
+                            "c": cc,
+                            "mask_before": mask_before,
+                            "mask_after": mask_after,
+                            "family": family
+                        })
+                        if len(grew_bits) >= 16:
+                            break
+
+                if grew_bits and lfp_monotone_violation_family is None:
+                    # Record first violation only
+                    lfp_monotone_violation_family = {
+                        "family": family,
+                        "samples": grew_bits
+                    }
+
+                # Snapshot for next family
+                D_before_family = D.copy()
+
+            # Debug: Record timeline for watched pixels after this family
+            if STRICT_MONOTONE_CHECK and WATCH_PIXELS:
+                samples = []
+                for (rr, cc) in WATCH_PIXELS[:8]:
+                    samples.append({"r": rr, "c": cc, "mask": D.get((rr, cc), 0)})
+                lfp_timeline.append({"stage": f"after_{family}", "samples": samples})
 
         admit_passes += 1
         total_admit_prunes += admit_prunes_this
@@ -148,11 +205,16 @@ def lfp_propagate(
         if empties > 0:
             return "UNSAT", _seal_stats(
                 admit_passes, ac3_passes, total_admit_prunes,
-                total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
+                total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays, lfp_admit_mismatches,
+                lfp_monotone_violation_family, lfp_monotone_violation_ac3, lfp_timeline
             )
 
         # (2) AC-3 prune (if forbids present)
         if forbids is not None:
+            # Debug: snapshot before AC-3
+            if STRICT_MONOTONE_CHECK:
+                D_before_ac3 = D.copy()
+
             changed_ac3, ac3_stats = ac3_prune(
                 D, E_graph, M_matrix, colors_order, R_out, C_out
             )
@@ -161,23 +223,53 @@ def lfp_propagate(
             empties = ac3_stats["empties"]
             changed = changed or changed_ac3
 
+            # Debug: Check monotonicity after AC-3
+            if STRICT_MONOTONE_CHECK:
+                grew_bits = []
+                for (rr, cc), mask_after in D.items():
+                    mask_before = D_before_ac3.get((rr, cc), mask_after)
+                    # Check if any bits were added
+                    if (mask_after | mask_before) != mask_before:
+                        grew_bits.append({
+                            "r": rr,
+                            "c": cc,
+                            "mask_before": mask_before,
+                            "mask_after": mask_after
+                        })
+                        if len(grew_bits) >= 16:
+                            break
+
+                if grew_bits and lfp_monotone_violation_ac3 is None:
+                    # Record first violation only
+                    lfp_monotone_violation_ac3 = {"samples": grew_bits}
+
+            # Debug: Record timeline for watched pixels after AC-3
+            if STRICT_MONOTONE_CHECK and WATCH_PIXELS:
+                samples = []
+                for (rr, cc) in WATCH_PIXELS[:8]:
+                    samples.append({"r": rr, "c": cc, "mask": D.get((rr, cc), 0)})
+                lfp_timeline.append({"stage": "after_AC3", "samples": samples})
+
             if empties > 0:
                 return "UNSAT", _seal_stats(
                     admit_passes, ac3_passes, total_admit_prunes,
-                    total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
+                    total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays, lfp_admit_mismatches,
+                    lfp_monotone_violation_family, lfp_monotone_violation_ac3, lfp_timeline
                 )
 
         # Fixed point?
         if not changed:
             return D, _seal_stats(
                 admit_passes, ac3_passes, total_admit_prunes,
-                total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
+                total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays, lfp_admit_mismatches,
+                lfp_monotone_violation_family, lfp_monotone_violation_ac3, lfp_timeline
             )
 
     # Cap guard
     return "FIXED_POINT_NOT_REACHED", _seal_stats(
         admit_passes, ac3_passes, total_admit_prunes,
-        total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
+        total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays, lfp_admit_mismatches,
+        lfp_monotone_violation_family, lfp_monotone_violation_ac3, lfp_timeline
     )
 
 
@@ -235,7 +327,10 @@ def _admit_intersect(
     S: List[int],
     colors_order: List[int],
     R_out: int,
-    C_out: int
+    C_out: int,
+    family: str = "",
+    debug_arrays: bool = False,
+    mismatches: Optional[List[Dict]] = None
 ) -> int:
     """
     Scope-gated admit intersect for one emitter.
@@ -281,6 +376,29 @@ def _admit_intersect(
             old = D.get((r, c), 0)
             new = old & admit_mask
 
+            # DEBUG: Verify singleton admits are properly enforced
+            if debug_arrays and mismatches is not None:
+                # Check if admit_mask is a singleton (exactly one bit set)
+                is_singleton = (admit_mask != 0) and (admit_mask & (admit_mask - 1) == 0)
+                if is_singleton:
+                    # If new mask still has more than one bit, there's a mismatch
+                    is_new_singleton = (new != 0) and (new & (new - 1) == 0)
+                    if not is_new_singleton and new != 0:
+                        # Log the mismatch
+                        mismatches.append({
+                            "r": r,
+                            "c": c,
+                            "family": family,
+                            "old_mask": old,
+                            "admit_mask": admit_mask,
+                            "new_mask": new,
+                            "scope_row": scope_row,
+                            "colors_order": colors_order,
+                            # Which color was the singleton admit?
+                            "admit_color_idx": (admit_mask & -admit_mask).bit_length() - 1,
+                            "admit_color": colors_order[(admit_mask & -admit_mask).bit_length() - 1] if admit_mask > 0 else None
+                        })
+
             if new != old:
                 D[(r, c)] = new
                 # Count bit prunes
@@ -300,7 +418,11 @@ def _seal_stats(
     R_out: int,
     C_out: int,
     colors_order: List[int],
-    debug_arrays: bool = False
+    debug_arrays: bool = False,
+    lfp_admit_mismatches: Optional[List[Dict]] = None,
+    lfp_monotone_violation_family: Optional[Dict] = None,
+    lfp_monotone_violation_ac3: Optional[Dict] = None,
+    lfp_timeline: Optional[List[Dict]] = None
 ) -> LFPStats:
     """
     Seal LFPStats with deterministic hashes.
@@ -366,6 +488,20 @@ def _seal_stats(
                     if pixel_mask & (1 << color_idx):
                         D_star_planes[color][r] |= (1 << c_bit)
         stats["D_star_planes_bytes"] = serialize_planes_be_row_major(D_star_planes, R_out, C_out, colors_order).hex()
+
+        # Add singleton admit mismatches for diagnostic purposes
+        if lfp_admit_mismatches is not None:
+            stats["lfp_admit_mismatches"] = lfp_admit_mismatches
+
+        # Add monotonicity violation tracking
+        if lfp_monotone_violation_family is not None:
+            stats["lfp_monotone_violation_family"] = lfp_monotone_violation_family
+        if lfp_monotone_violation_ac3 is not None:
+            stats["lfp_monotone_violation_ac3"] = lfp_monotone_violation_ac3
+
+        # Add timeline tracking
+        if lfp_timeline is not None and len(lfp_timeline) > 0:
+            stats["lfp_timeline"] = lfp_timeline
 
     return stats
 
