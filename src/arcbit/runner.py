@@ -32,7 +32,7 @@ from .kernel import (
 from .features import agg_features
 from .canvas import choose_working_canvas, SizeUndetermined, parse_families, FULL_FAMILY_SET
 from .kernel.components import components
-from .emitters import learn_witness, emit_witness, emit_output_transport, emit_unity
+from .emitters import learn_witness, emit_witness, emit_output_transport, emit_unity, emit_lattice
 from .emitters.forbids import learn_forbids, build_4neighbor_graph
 from .emitters.lfp import lfp_propagate
 
@@ -650,6 +650,22 @@ def solve(
     receipts.put("unanimity", unanimity_receipt)
 
     # ========================================================================
+    # M4.5 Step 8b: Lattice (WO-09) - NEW
+    # ========================================================================
+
+    # Call emit_lattice on the same transported outputs
+    A_lat, S_lat, lattice_receipt = emit_lattice(
+        A_out_list=A_out_list,
+        S_out_list=S_out_list,
+        colors_order=colors_order,
+        R_out=R_out,
+        C_out=C_out
+    )
+
+    # Add lattice receipts
+    receipts.put("lattice", lattice_receipt)
+
+    # ========================================================================
     # M3 Step 9: Extract Components (WO-05) - if witness enabled
     # ========================================================================
 
@@ -857,6 +873,9 @@ def solve(
 
     # T2_unity (unanimity) - always add if available
     emitters_list.append(("T2_unity", A_uni, S_uni))
+
+    # T3_lattice - logical min/max constraints (NEW in M4.5)
+    emitters_list.append(("T3_lattice", A_lat, S_lat))
 
     # Initialize D0 to all-ones (top of lattice)
     D0 = {(r, c): ((1 << len(colors_order)) - 1) for r in range(R_out) for c in range(C_out)}

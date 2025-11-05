@@ -21,6 +21,9 @@ class LFPStats(TypedDict):
     total_admit_prunes: int     # sum of bits removed by admits
     total_ac3_prunes: int       # sum of AC-3 prunes
     empties: int                # pixels with empty domain (>0 = UNSAT)
+    singleton_pixels: int       # pixels with exactly 1 color in domain
+    multi_pixels: int           # pixels with >1 colors in domain
+    empty_pixels: int           # pixels with 0 colors (alias for empties for clarity)
     domains_hash: str           # BLAKE3 of final domain tensor
     section_hash: str
 
@@ -300,10 +303,25 @@ def _seal_stats(
 
     Spec: WO-11 v1.6 receipts section
     """
+    # Count singleton/multi/empty pixels for diagnostics
+    singleton_pixels = 0
+    multi_pixels = 0
+    empty_pixels = 0
+
+    for r in range(R_out):
+        for c in range(C_out):
+            mask = D.get((r, c), 0)
+            if mask == 0:
+                empty_pixels += 1
+            elif mask & (mask - 1) == 0:  # exactly one bit set (power of 2)
+                singleton_pixels += 1
+            else:  # multiple bits set
+                multi_pixels += 1
+
     domains_hash = _hash_domains(D, R_out, C_out, colors_order)
     section_hash = _hash_lfp_stats(
         admit_passes, ac3_passes, total_admit_prunes,
-        total_ac3_prunes, empties, domains_hash
+        total_ac3_prunes, empties, singleton_pixels, multi_pixels, empty_pixels, domains_hash
     )
 
     return LFPStats(
@@ -312,6 +330,9 @@ def _seal_stats(
         total_admit_prunes=total_admit_prunes,
         total_ac3_prunes=total_ac3_prunes,
         empties=empties,
+        singleton_pixels=singleton_pixels,
+        multi_pixels=multi_pixels,
+        empty_pixels=empty_pixels,
         domains_hash=domains_hash,
         section_hash=section_hash
     )
@@ -363,11 +384,14 @@ def _hash_lfp_stats(
     total_admit_prunes: int,
     total_ac3_prunes: int,
     empties: int,
+    singleton_pixels: int,
+    multi_pixels: int,
+    empty_pixels: int,
     domains_hash: str
 ) -> str:
     """Hash LFP stats in deterministic order."""
     stats_str = (
         f"{admit_passes},{ac3_passes},{total_admit_prunes},"
-        f"{total_ac3_prunes},{empties},{domains_hash}"
+        f"{total_ac3_prunes},{empties},{singleton_pixels},{multi_pixels},{empty_pixels},{domains_hash}"
     )
     return blake3_hash(stats_str.encode("utf-8"))

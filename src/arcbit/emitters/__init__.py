@@ -8,6 +8,7 @@ from .witness_learn import learn_witness, Piece, WitnessResult
 from .witness_emit import emit_witness
 from .output_transport import emit_output_transport, TransportReceipt
 from .unanimity import emit_unity, emit_unanimity, UnanimityReceipt
+from .lattice import emit_lattice
 
 __all__ = [
     "learn_witness",
@@ -19,4 +20,5 @@ __all__ = [
     "emit_unity",
     "emit_unanimity",
     "UnanimityReceipt",
+    "emit_lattice",
 ]
