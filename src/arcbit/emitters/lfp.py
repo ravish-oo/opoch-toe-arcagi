@@ -15,7 +15,8 @@ from ..core.hashing import blake3_hash
 from .forbids import ac3_prune
 
 
-class LFPStats(TypedDict):
+class LFPStats(TypedDict, total=False):
+    # Required fields
     admit_passes: int
     ac3_passes: int
     total_admit_prunes: int     # sum of bits removed by admits
@@ -27,6 +28,9 @@ class LFPStats(TypedDict):
     lfp_prunes_by_family: Dict[str, int]  # prunes contributed by each family (T1, T2, T3, ...)
     domains_hash: str           # BLAKE3 of final domain tensor
     section_hash: str
+
+    # Optional debug field (only when debug_arrays=True)
+    D_star_planes_bytes: str  # hex-encoded bytes: D* as K planes (one per color)
 
 
 # Frozen defaults (spec WO-11 v1.6)
@@ -56,6 +60,7 @@ def lfp_propagate(
     colors_order: Optional[List[int]] = None,
     R_out: Optional[int] = None,
     C_out: Optional[int] = None,
+    debug_arrays: bool = False
 ) -> Tuple[Dict[Tuple[int, int], int], LFPStats] | Tuple[str, LFPStats]:
     """
     Run monotone loop to compute least fixed point of constraints.
@@ -143,7 +148,7 @@ def lfp_propagate(
         if empties > 0:
             return "UNSAT", _seal_stats(
                 admit_passes, ac3_passes, total_admit_prunes,
-                total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order
+                total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
             )
 
         # (2) AC-3 prune (if forbids present)
@@ -159,20 +164,20 @@ def lfp_propagate(
             if empties > 0:
                 return "UNSAT", _seal_stats(
                     admit_passes, ac3_passes, total_admit_prunes,
-                    total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order
+                    total_ac3_prunes, empties, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
                 )
 
         # Fixed point?
         if not changed:
             return D, _seal_stats(
                 admit_passes, ac3_passes, total_admit_prunes,
-                total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order
+                total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
             )
 
     # Cap guard
     return "FIXED_POINT_NOT_REACHED", _seal_stats(
         admit_passes, ac3_passes, total_admit_prunes,
-        total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order
+        total_ac3_prunes, 0, prunes_by_family, D, R_out, C_out, colors_order, debug_arrays
     )
 
 
@@ -294,7 +299,8 @@ def _seal_stats(
     D: Dict[Tuple[int, int], int],
     R_out: int,
     C_out: int,
-    colors_order: List[int]
+    colors_order: List[int],
+    debug_arrays: bool = False
 ) -> LFPStats:
     """
     Seal LFPStats with deterministic hashes.
@@ -333,7 +339,7 @@ def _seal_stats(
         prunes_by_family, domains_hash
     )
 
-    return LFPStats(
+    stats = LFPStats(
         admit_passes=admit_passes,
         ac3_passes=ac3_passes,
         total_admit_prunes=total_admit_prunes,
@@ -346,6 +352,22 @@ def _seal_stats(
         domains_hash=domains_hash,
         section_hash=section_hash
     )
+
+    # Add debug arrays if requested (convert domain tensor to planes)
+    if debug_arrays:
+        from ..core.bytesio import serialize_planes_be_row_major
+        # Convert domain tensor to planes: D* = Dict[(r,c) -> bitmask] → Dict[color -> List[row_masks]]
+        D_star_planes = {c: [0] * R_out for c in colors_order}
+        for r in range(R_out):
+            for c_bit in range(C_out):
+                pixel_mask = D.get((r, c_bit), 0)
+                # For each color, check if it's in this pixel's domain
+                for color_idx, color in enumerate(colors_order):
+                    if pixel_mask & (1 << color_idx):
+                        D_star_planes[color][r] |= (1 << c_bit)
+        stats["D_star_planes_bytes"] = serialize_planes_be_row_major(D_star_planes, R_out, C_out, colors_order).hex()
+
+    return stats
 
 
 def _hash_domains(

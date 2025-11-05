@@ -291,7 +291,8 @@ def solve(
     families: Tuple[str, ...] = FULL_FAMILY_SET,
     skip_h8h9_if_area1: bool = False,
     with_witness: bool = True,
-    with_unanimity: bool = False
+    with_unanimity: bool = False,
+    debug_arrays: bool = False
 ) -> Tuple[List[List[int]], Dict]:
     """
     ARC-AGI deterministic solver (milestone-based).
@@ -345,6 +346,8 @@ def solve(
             Default: False (production conservative).
         with_witness: If True, enable witness path (default: True at M3).
         with_unanimity: If True, enable unanimity (default: False at M3).
+        debug_arrays: If True, serialize A/S/D arrays to receipts for offline validation.
+            Can also be enabled via ARC_DEBUG_ARRAYS=1 env var. Default: False.
 
     Returns:
         Tuple of (Y, receipts_bundle):
@@ -363,6 +366,11 @@ def solve(
         SizeUndetermined: If no H1-H9 hypothesis fits all trainings (M1')
         RuntimeError: On determinism check failure (double-run mismatch)
     """
+    # Check for debug_arrays env var
+    import os
+    if not debug_arrays:
+        debug_arrays = os.environ.get("ARC_DEBUG_ARRAYS", "0") == "1"
+
     # Extract grids
     train_pairs = task_json.get("train", [])
     test_inputs = task_json.get("test", [])
@@ -717,7 +725,7 @@ def solve(
 
     # Call emit_unity (unanimity)
     A_uni, S_uni, unanimity_receipt = emit_unity(
-        A_out_list, S_out_list, colors_order, R_out, C_out
+        A_out_list, S_out_list, colors_order, R_out, C_out, debug_arrays=debug_arrays
     )
 
     # Add unanimity receipts
@@ -733,7 +741,8 @@ def solve(
         S_out_list=S_out_list,
         colors_order=colors_order,
         R_out=R_out,
-        C_out=C_out
+        C_out=C_out,
+        debug_arrays=debug_arrays
     )
 
     # Add lattice receipts
@@ -880,7 +889,8 @@ def solve(
         # Emit global witness (WO-07)
         A_wit, S_wit, witness_emit_receipts = emit_witness(
             X_star, witness_results_all, frames_all, colors_order, R_out, C_out,
-            included_train_ids=included_train_ids_from_transport  # Pass transport-included IDs
+            included_train_ids=included_train_ids_from_transport,  # Pass transport-included IDs
+            debug_arrays=debug_arrays
         )
 
         # Add witness_emit receipts to final bundle
@@ -1018,7 +1028,8 @@ def solve(
 
     result = lfp_propagate(
         D0, emitters_list, forbids=forbids_tuple,
-        colors_order=colors_order, R_out=R_out, C_out=C_out
+        colors_order=colors_order, R_out=R_out, C_out=C_out,
+        debug_arrays=debug_arrays
     )
 
     # Handle UNSAT or FIXED_POINT_NOT_REACHED (fail-closed)

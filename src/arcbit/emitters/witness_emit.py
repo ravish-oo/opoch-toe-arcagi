@@ -27,6 +27,7 @@ def emit_witness(
     R_out: int,
     C_out: int,
     included_train_ids: Optional[List[int]] = None,
+    debug_arrays: bool = False
 ) -> Tuple[Dict[int, List[int]], List[int], Dict]:
     """
     Conjugate witness pieces and forward-emit test input to working canvas.
@@ -128,6 +129,14 @@ def emit_witness(
 
     # Optional nice-to-have audit fields
     receipts.put("per_training_piece_counts", per_training_piece_counts)
+
+    # Add debug arrays if requested
+    if debug_arrays:
+        from ..core.bytesio import serialize_planes_be_row_major, serialize_scope_be_row_major
+        receipts.put("debug_arrays", {
+            "A_wit_planes_bytes": serialize_planes_be_row_major(A_wit, R_out, C_out, colors_order).hex(),
+            "S_wit_bytes": serialize_scope_be_row_major(S_wit, R_out, C_out).hex(),
+        })
 
     # Generate receipts bundle per WO-07 spec
     receipts_bundle = receipts.digest()

@@ -67,3 +67,49 @@ Short and clear:
 
 * It won’t change UNSAT/ERROR counts directly (those exit before LFP), but fixing `S_lat` may turn a few borderline NOT_YET cases (in truly periodic tasks) into higher-accuracy or even perfect matches.
 ===
+# LFP bugs
+## How to find
+
+---
+
+## B. Decide “NOT_YET” vs “BUG” for the 72% (receipts-only checks)
+
+**Where:** Use the final LFP receipts and either the current `selection` or add the tiny set-logic.
+
+For each “SUCCESS / NOT_YET” task:
+
+1. **Singleton check**
+   Add to `lfp` (done in Step 0): `lfp_singleton_pixels`, `lfp_multi_pixels`, `lfp_empty_pixels`.
+
+* If `lfp_singleton_pixels == R_out*C_out` **and** GT shape matches **and** `Y_out ≠ GT` → **BUG** (forced but wrong). Investigate σ/transport for this task.
+* If `lfp_multi_pixels > 0` → **candidate under-constraint**. Go to (2).
+
+2. **Hard-fact intersection check (C_must)** *(one pixel sample per class is enough)*
+   For a handful of multi-valued pixels (p):
+
+* Compute ( C_{\text{must}}(p) = \bigcap_{\ell \in {T1,T2,T3}: S^\ell[p]=1} \text{Admits}^\ell(p)).
+
+  * If (|C_{\text{must}}(p)| == 1) and yet (D^*[p]) (final domain) has multiple bits → **LFP bug** (you didn’t intersect all hard facts at that pixel).
+  * If (|C_{\text{must}}(p)| \ge 2) or equals the **family union** (e.g., only T1 spoke and admitted colors {a,b}) → **true under-constraint** (no bug; no other hard fact restricts that pixel).
+  * If (|C_{\text{must}}(p)| == 0) and task is “SUCCESS” → you must be deferring one hard fact; it’s still under-constraint, not a bug.
+
+3. **Lattice contribution**
+   On a periodic task (where `global_validated=true` and `residue_scope_bits>0`), check that the multi-pixels are **outside** S_lat; inside S_lat they should be **singletons** after T3. If not, it’s a lattice wiring bug (mask not intersected in LFP).
+
+**Outcome:**
+
+* Any task that fails (1) (all singletons but wrong) or (2) (C_must=1 but D* multi) is a **bug**.
+* All others with multi-pixels are **NOT_YET**—provably under-constrained by the currently wired families.
+
+---
+## sweep runs on h1-7
+  📊 Impact: 572 BUGS Found (74.0% of SUCCESS tasks)
+
+  Out of 773 SUCCESS tasks analyzed:
+
+  - 43 bugs (5.6%): Singleton wrong (σ/transport bugs - already known)
+  - 528 bugs (68.3%): ❌ LFP intersection bug (|C_must|==1 but |D*|>1)
+  - 1 bug (0.1%): Lattice wiring bug (inside S_lat but still multi)
+  - 145 tasks (18.8%): NOT_YET (true under-constraint, |C_must|>=2)
+  - 3 tasks (0.4%): PERFECT
+

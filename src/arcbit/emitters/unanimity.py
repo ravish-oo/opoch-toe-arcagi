@@ -10,7 +10,8 @@ from typing import List, Dict, Tuple, TypedDict
 from ..core.hashing import blake3_hash
 
 
-class UnanimityReceipt(TypedDict):
+class UnanimityReceipt(TypedDict, total=False):
+    # Required fields
     included_train_ids: List[int]
     unanimous_pixels: int
     total_covered_pixels: int
@@ -19,6 +20,10 @@ class UnanimityReceipt(TypedDict):
     scope_hash: str
     unanimity_grid_hash: str  # Grid-encoded hash for comparison with repaint_hash
 
+    # Optional debug fields (only when debug_arrays=True)
+    A_uni_planes_bytes: str  # hex-encoded bytes
+    S_uni_bytes: str  # hex-encoded bytes
+
 
 def emit_unity(
     A_out_list: List[Dict[int, List[int]]],
@@ -26,6 +31,7 @@ def emit_unity(
     colors_order: List[int],
     R_out: int,
     C_out: int,
+    debug_arrays: bool = False
 ) -> Tuple[Dict[int, List[int]], List[int], UnanimityReceipt]:
     """
     Emit unanimous color admits where all included trainings agree.
@@ -134,6 +140,12 @@ def emit_unity(
         scope_hash=scope_hash,
         unanimity_grid_hash=unanimity_grid_hash,
     )
+
+    # Add debug arrays if requested
+    if debug_arrays:
+        from ..core.bytesio import serialize_planes_be_row_major, serialize_scope_be_row_major
+        receipt["A_uni_planes_bytes"] = serialize_planes_be_row_major(A_uni, R_out, C_out, colors_order).hex()
+        receipt["S_uni_bytes"] = serialize_scope_be_row_major(S_uni, R_out, C_out).hex()
 
     return A_uni, S_uni, receipt
 

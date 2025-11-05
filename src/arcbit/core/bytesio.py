@@ -218,6 +218,69 @@ def serialize_planes_be_row_major(
     return bytes(stream)
 
 
+def serialize_scope_be_row_major(
+    S: list[int],
+    H: int,
+    W: int
+) -> bytes:
+    """
+    Encode scope (row masks) as deterministic byte stream.
+
+    Format (exact):
+      - 4 ASCII bytes tag: b"SCP1"
+      - 2 bytes H (uint16, big-endian)
+      - 2 bytes W (uint16, big-endian)
+      - Payload: for each row r in 0..H-1:
+          emit ceil(W/8) bytes with bit mapping:
+            bit 7 → col 0, bit 6 → col 1, ..., bit 0 → col 7
+          A bit is 1 iff S[r] has that bit set.
+
+    Args:
+        S: List of H row masks (unsigned ints).
+        H: Height (number of rows).
+        W: Width (number of columns per row).
+
+    Returns:
+        bytes: Deterministic serialization.
+
+    Raises:
+        SerializationError: If dimensions mismatch.
+
+    Spec:
+        Debug arrays WO: serialize_scope_be_row_major.
+    """
+    if len(S) != H:
+        raise SerializationError(f"Scope length mismatch: expected {H}, got {len(S)}")
+    if H > 65535 or W > 65535:
+        raise SerializationError(f"Dimensions too large: H={H}, W={W}")
+
+    # Build byte stream
+    stream = bytearray()
+
+    # Tag (4 ASCII bytes)
+    stream.extend(b"SCP1")
+
+    # Dimensions (big-endian uint16)
+    stream.extend(H.to_bytes(2, byteorder='big'))
+    stream.extend(W.to_bytes(2, byteorder='big'))
+
+    # Payload: per-row masks
+    bytes_per_row = math.ceil(W / 8)
+
+    for r in range(H):
+        row_mask = S[r]
+        # Convert row mask (unsigned int) to bytes
+        mask_bytes = bytearray(bytes_per_row)
+        for col in range(W):
+            if row_mask & (1 << col):
+                byte_idx = col // 8
+                bit_pos = 7 - (col % 8)  # bit 7 → col 0
+                mask_bytes[byte_idx] |= (1 << bit_pos)
+        stream.extend(mask_bytes)
+
+    return bytes(stream)
+
+
 class SerializationError(Exception):
     """Raised when serialization encounters invalid dimensions or colors."""
     pass

@@ -13,7 +13,8 @@ from ..kernel.period import period_2d_planes
 from ..kernel.planes import pack_grid_to_planes
 
 
-class LatticeReceipt(TypedDict):
+class LatticeReceipt(TypedDict, total=False):
+    # Required fields
     included_train_ids: List[int]
     p_r: Optional[int]  # proper minimal period ≥2 if present, else None (kept for backward compat)
     p_c: Optional[int]  # kept for backward compat
@@ -27,13 +28,18 @@ class LatticeReceipt(TypedDict):
     A_lat_hash: str
     S_lat_hash: str
 
+    # Optional debug fields (only when debug_arrays=True and residue_scope_bits > 0)
+    A_lat_planes_bytes: str  # hex-encoded bytes
+    S_lat_bytes: str  # hex-encoded bytes
+
 
 def emit_lattice(
     A_out_list: List[Dict[int, List[int]]],
     S_out_list: List[List[int]],
     colors_order: List[int],
     R_out: int,
-    C_out: int
+    C_out: int,
+    debug_arrays: bool = False
 ) -> Tuple[Dict[int, List[int]], List[int], LatticeReceipt]:
     """
     Emit lattice admits for residue classes where all trainings agree.
@@ -137,6 +143,12 @@ def emit_lattice(
         A_lat_hash=A_lat_hash,
         S_lat_hash=S_lat_hash,
     )
+
+    # Add debug arrays if requested and residue scope is non-empty
+    if debug_arrays and residue_scope_bits > 0:
+        from ..core.bytesio import serialize_planes_be_row_major, serialize_scope_be_row_major
+        receipt["A_lat_planes_bytes"] = serialize_planes_be_row_major(A_lat, R_out, C_out, colors_order).hex()
+        receipt["S_lat_bytes"] = serialize_scope_be_row_major(S_lat, R_out, C_out).hex()
 
     return A_lat, S_lat, receipt
 
