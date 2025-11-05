@@ -901,6 +901,25 @@ def solve(
         "conflict_details_sample": conflict_details[:10]  # First 10 conflicts
     })
 
+    # Optional: Defer witness scope where it conflicts with unanimity
+    # This avoids UNSAT on honest disagreements (e.g., witness can't produce color 4 if σ doesn't map to 4)
+    if with_witness:
+        for r in range(R_out):
+            both = S_wit[r] & S_uni[r]
+            if both == 0:
+                continue
+            for c in range(C_out):
+                bit = 1 << c
+                if not (both & bit):
+                    continue
+                agree = False
+                for col in colors_order:
+                    if (A_wit.get(col, [0]*R_out)[r] & bit) and (A_uni.get(col, [0]*R_out)[r] & bit):
+                        agree = True
+                        break
+                if not agree:
+                    S_wit[r] &= ~bit  # defer witness here
+
     # Run LFP propagation
     forbids_tuple = (E_graph, M_matrix) if E_graph and M_matrix else None
 

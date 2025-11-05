@@ -392,15 +392,15 @@ def _process_piece(
     # Construct φ_i = (R_i, t_i) in (Pi_in_i -> Pi_out_i) coordinates
     phi_i = (pid, (dy, dx))
 
-    # BUGFIX: Conjugate WITHOUT Pi_in_*⁻¹ because input is pre-canonicalized
-    # Correct formula: φ_i* = Pi_out_* ∘ Pi_out_i⁻¹ ∘ φ_i ∘ Pi_in_i
-    # The Pi_in_*⁻¹ term is already applied by apply_pose_anchor at line 261
+    # Conjugate: φ_i* = Pi_out_* ∘ Pi_out_i⁻¹ ∘ φ_i ∘ Pi_in_i ∘ Pi_in_*⁻¹
+    Pi_in_star_inv = _inverse_frame(Pi_in_star)
     Pi_out_i_inv = _inverse_frame(Pi_out_i)
 
-    # Build 4-frame composition from right to left (NOT 5-frame!)
-    temp1 = _compose_frames(phi_i, Pi_in_i)
-    temp2 = _compose_frames(Pi_out_i_inv, temp1)
-    phi_i_star = _compose_frames(Pi_out_star, temp2)
+    # Build 5-frame composition from right to left
+    temp1 = _compose_frames(Pi_in_i, Pi_in_star_inv)
+    temp2 = _compose_frames(phi_i, temp1)
+    temp3 = _compose_frames(Pi_out_i_inv, temp2)
+    phi_i_star = _compose_frames(Pi_out_star, temp3)
 
     pid_star, (dy_star, dx_star) = phi_i_star
 
